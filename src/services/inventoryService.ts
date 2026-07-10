@@ -24,6 +24,7 @@ export type ProductCategory = {
 export type Product = {
   id: number;
   name: string;
+  product_number: string | null;
   sku: string;
   barcode: string;
   category: number | null;

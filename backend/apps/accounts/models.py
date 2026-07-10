@@ -43,9 +43,18 @@ class User(AbstractUser):
         SUPERADMIN = "superadmin", "SuperAdmin"
         STAFF = "staff", "Staff"
 
+    class SidebarNavigationMode(models.TextChoices):
+        ACCORDION = "accordion", "Accordion"
+        MULTI_EXPAND = "multi_expand", "Multi-Expand"
+
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.STAFF)
     permissions = models.JSONField(default=list, blank=True)
+    sidebar_navigation_mode = models.CharField(
+        max_length=20,
+        choices=SidebarNavigationMode.choices,
+        default=SidebarNavigationMode.ACCORDION,
+    )
     last_password_reset_request = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = "email"

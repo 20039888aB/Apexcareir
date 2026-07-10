@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.utils import timezone
 
+from apps.common.services.company_branding import build_report_email_header_html, get_company_branding
 from apps.finance.models import Expense, Payroll
 from apps.inventory.models import Product, StockReceipt
 from apps.reports.services import build_report_payload
@@ -193,7 +194,13 @@ def build_detailed_period_report_html(*, period_label: str, start_date, end_date
 
     summary = performance["summary"]
     now = timezone.localtime().strftime("%Y-%m-%d %H:%M")
-    logo_url = f"{getattr(settings, 'FRONTEND_APP_URL', 'http://localhost:5173')}/logo.jpeg"
+    branding = get_company_branding()
+    company_name = branding["company_name"]
+    header_html = build_report_email_header_html(
+        title=f"{company_name} {period_label} Business Report",
+        subtitle=f"Period: {start_date} to {end_date} · Generated {now}",
+        branding=branding,
+    )
 
     expense_type_summary_rows = [[label, _money(total)] for label, total in sorted(expense_by_type.items())]
 
@@ -241,11 +248,7 @@ def build_detailed_period_report_html(*, period_label: str, start_date, end_date
     return f"""
     <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;">
       <div style="max-width:920px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
-        <div style="padding:18px 22px;background:linear-gradient(135deg,#1B4D3E,#6E2C3E);color:#fff;">
-          <img src="{logo_url}" alt="Apex Care IR" style="height:34px;vertical-align:middle;margin-right:10px;" />
-          <span style="font-size:18px;font-weight:700;">ApexCareIR {period_label} Business Report</span>
-          <p style="margin:8px 0 0;font-size:13px;opacity:0.9;">Period: {start_date} to {end_date} · Generated {now}</p>
-        </div>
+        {header_html}
         <div style="padding:22px;">
           {_section(
               "Weekly Performance Snapshot" if period_label.lower() == "weekly" else "Period Performance Snapshot",
@@ -385,7 +388,7 @@ def build_detailed_period_report_html(*, period_label: str, start_date, end_date
           )}
         </div>
         <div style="padding:14px 22px;background:#f1f5f9;color:#64748b;font-size:12px;">
-          ApexCareIR · Detailed automated business report · Clinic, inventory, website & operations performance
+          {_escape(company_name)} · {_escape(branding['support_email'])} · Detailed automated business report
         </div>
       </div>
     </div>

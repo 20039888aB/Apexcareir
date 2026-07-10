@@ -465,5 +465,4 @@ export const navLinks = [
   { to: '/faq', label: 'FAQ' },
   { to: '/blog', label: 'Blog' },
   { to: '/contact', label: 'Contact' },
-  { to: '/apexcareir-main', label: 'Apexcareir main' },
 ];

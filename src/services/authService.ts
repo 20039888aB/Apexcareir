@@ -84,6 +84,18 @@ export async function updateProfile(payload: ProfileUpdateInput) {
   return response.data;
 }
 
+const userPreferencesSchema = z.object({
+  sidebar_navigation_mode: z.enum(['accordion', 'multi_expand']),
+});
+
+export type UserPreferencesInput = z.infer<typeof userPreferencesSchema>;
+
+export async function updateUserPreferences(payload: UserPreferencesInput) {
+  const validatedPayload = userPreferencesSchema.parse(payload);
+  const response = await httpClient.patch<AuthUser>('/auth/me/preferences/', validatedPayload);
+  return response.data;
+}
+
 type PermissionOption = {
   code: string;
   label: string;

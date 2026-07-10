@@ -3,9 +3,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Activity, Building2, Eye, EyeOff, HeartPulse, ShieldPlus, Stethoscope } from 'lucide-react';
 import Logo from '../../components/Logo';
+import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import { login, type LoginInput } from '../../services';
 import { useAuthStore } from '../../store';
 import { loginSchema } from '../../services/authService';
@@ -44,7 +45,7 @@ export default function LoginPage() {
       queryClient.removeQueries({ queryKey: ['auth', 'me'] });
       setTokens(data.access, data.refresh);
       setUser(data.user);
-      navigate(from ?? '/apexcareir-main/app/dashboard', { replace: true });
+      navigate(from ?? ADMIN_ROUTES.dashboard, { replace: true });
     },
   });
 
@@ -157,12 +158,6 @@ export default function LoginPage() {
               {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
-
-          <div className="mt-4 flex justify-end text-xs">
-            <Link to="/apexcareir-main/overview" className="text-white/55 hover:text-white/75 hover:underline">
-              View system overview
-            </Link>
-          </div>
         </div>
       </motion.div>
     </section>

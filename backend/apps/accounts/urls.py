@@ -10,6 +10,7 @@ from .views import (
     ProfileAPIView,
     RefreshTokenAPIView,
     ResetPasswordConfirmAPIView,
+    UserPreferencesAPIView,
     UserViewSet,
 )
 
@@ -24,6 +25,7 @@ urlpatterns = [
     path("auth/reset-password/", ResetPasswordConfirmAPIView.as_view(), name="reset-password"),
     path("auth/change-password/", ChangePasswordAPIView.as_view(), name="change-password"),
     path("auth/me/", ProfileAPIView.as_view(), name="me"),
+    path("auth/me/preferences/", UserPreferencesAPIView.as_view(), name="me-preferences"),
     path("auth/permission-matrix/", PermissionMatrixAPIView.as_view(), name="permission-matrix"),
     path("", include(router.urls)),
 ]

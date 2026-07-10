@@ -41,7 +41,7 @@ class ExpenseViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
     permission_by_action = {"default": "finance.expense_tracking"}
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = ExpenseFilterSet
-    search_fields = ["category", "description", "payment_method", "expense_type", "business_area"]
+    search_fields = ["category", "description", "payment_method", "expense_type", "business_area", "expense_number"]
     ordering_fields = ["date", "created_at", "amount", "category", "expense_type", "business_area"]
 
     def perform_create(self, serializer):
@@ -63,7 +63,7 @@ class PayrollViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
     permission_by_action = {"default": "finance.payroll"}
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = PayrollFilterSet
-    search_fields = ["employee", "notes"]
+    search_fields = ["employee", "notes", "employee_number"]
     ordering_fields = ["payment_date", "created_at", "net_salary", "salary"]
 
     def perform_create(self, serializer):

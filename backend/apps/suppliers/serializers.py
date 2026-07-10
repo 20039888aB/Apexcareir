@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.common.services.auto_number import assign_supplier_number
 from apps.inventory.models import StockReceipt
 
 from .models import Supplier
@@ -15,6 +16,7 @@ class SupplierSerializer(serializers.ModelSerializer):
         model = Supplier
         fields = [
             "id",
+            "supplier_number",
             "name",
             "contact_person",
             "phone",
@@ -29,7 +31,13 @@ class SupplierSerializer(serializers.ModelSerializer):
             "total_purchase_amount",
             "last_purchase_date",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "supplier_number", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        supplier = Supplier(**validated_data)
+        assign_supplier_number(supplier)
+        supplier.save()
+        return supplier
 
 
 class SupplierInvoiceSerializer(serializers.ModelSerializer):

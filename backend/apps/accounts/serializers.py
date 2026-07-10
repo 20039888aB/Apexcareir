@@ -22,6 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "role",
             "permissions",
+            "sidebar_navigation_mode",
             "is_active",
             "last_login",
             "date_joined",
@@ -151,6 +152,15 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["first_name", "last_name", "email"]
+
+
+class UserPreferencesSerializer(serializers.Serializer):
+    sidebar_navigation_mode = serializers.ChoiceField(choices=User.SidebarNavigationMode.choices)
+
+    def update(self, instance, validated_data):
+        instance.sidebar_navigation_mode = validated_data["sidebar_navigation_mode"]
+        instance.save(update_fields=["sidebar_navigation_mode"])
+        return instance
 
 
 class AdminResetPasswordSerializer(serializers.Serializer):

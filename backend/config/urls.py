@@ -19,6 +19,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+admin.site.site_header = "Apex Care IR Administration"
+admin.site.site_title = "Apexcareir Admin"
+admin.site.index_title = "Business Management Console"
+
 # API route modules are mounted under /api/v1/.
 
 urlpatterns = [

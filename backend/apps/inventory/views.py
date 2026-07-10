@@ -18,6 +18,7 @@ from .filters import (
     StockReceiptFilterSet,
     StockTransferFilterSet,
 )
+from apps.common.services.numbering import allocate_document_number
 from .models import Product, ProductCategory, StockAdjustment, StockMovement, StockReceipt, StockReceiptBatch, StockTransfer
 from .services.catalogue_seed import seed_catalogue_items
 from .services.product_admin import force_delete_product, purge_product_history
@@ -124,7 +125,7 @@ class ProductViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
     }
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = ProductFilterSet
-    search_fields = ["name", "sku", "barcode", "brand", "model_name", "description"]
+    search_fields = ["name", "sku", "product_number", "barcode", "brand", "model_name", "description"]
     ordering_fields = ["name", "created_at", "current_stock", "selling_price"]
 
     def get_permissions(self):
@@ -279,7 +280,7 @@ class StockReceiptViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
     permission_by_action = {"default": "inventory.stock_receiving"}
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = StockReceiptFilterSet
-    search_fields = ["invoice_number", "product__name", "product__sku", "supplier__name", "batch_number"]
+    search_fields = ["invoice_number", "receipt_number", "product__name", "product__sku", "supplier__name", "batch_number"]
     ordering_fields = ["date_received", "created_at", "quantity", "purchase_price"]
 
     @action(detail=False, methods=["post"], url_path="bulk-receive")
@@ -303,6 +304,7 @@ class StockReceiptViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
             batch = StockReceiptBatch.objects.create(
                 supplier_id=supplier_id if supplier_id else None,
                 invoice_number=invoice_number,
+                receipt_number=allocate_document_number("stock_receipt"),
                 date_received=date_received,
                 additional_expenses=additional_expenses,
                 received_by=request.user if request.user.is_authenticated else None,
@@ -425,7 +427,7 @@ class StockAdjustmentViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
     permission_by_action = {"default": "inventory.stock_adjustments"}
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = StockAdjustmentFilterSet
-    search_fields = ["reason", "operation", "product__name", "product__sku", "notes"]
+    search_fields = ["reason", "operation", "adjustment_number", "product__name", "product__sku", "notes"]
     ordering_fields = ["date", "created_at", "quantity"]
 
     def perform_create(self, serializer):

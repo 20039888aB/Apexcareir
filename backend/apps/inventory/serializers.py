@@ -1,5 +1,11 @@
 from rest_framework import serializers
 
+from apps.common.services.auto_number import (
+    assign_adjustment_number,
+    assign_product_number,
+    assign_receipt_number,
+)
+
 from .models import Product, ProductCategory, StockAdjustment, StockMovement, StockReceipt, StockTransfer
 
 
@@ -21,6 +27,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "product_number",
             "sku",
             "barcode",
             "category",
@@ -42,7 +49,13 @@ class ProductSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "product_number", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        product = Product(**validated_data)
+        assign_product_number(product)
+        product.save()
+        return product
 
     def get_is_low_stock(self, obj):
         return obj.current_stock <= obj.minimum_stock
@@ -70,6 +83,7 @@ class StockReceiptSerializer(serializers.ModelSerializer):
             "supplier",
             "supplier_name",
             "invoice_number",
+            "receipt_number",
             "product",
             "product_name",
             "quantity",
@@ -84,7 +98,7 @@ class StockReceiptSerializer(serializers.ModelSerializer):
             "updated_at",
             "receipt_batch",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "received_by"]
+        read_only_fields = ["id", "receipt_number", "created_at", "updated_at", "received_by"]
 
     def get_batch_additional_expenses(self, obj):
         if obj.receipt_batch_id and obj.receipt_batch:
@@ -95,7 +109,10 @@ class StockReceiptSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request and request.user and request.user.is_authenticated:
             validated_data["received_by"] = request.user
-        return super().create(validated_data)
+        receipt = StockReceipt(**validated_data)
+        assign_receipt_number(receipt)
+        receipt.save()
+        return receipt
 
 
 class StockTransferSerializer(serializers.ModelSerializer):
@@ -136,6 +153,7 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         model = StockAdjustment
         fields = [
             "id",
+            "adjustment_number",
             "product",
             "product_name",
             "reason",
@@ -148,7 +166,7 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "adjusted_by"]
+        read_only_fields = ["id", "adjustment_number", "created_at", "updated_at", "adjusted_by"]
 
     def validate(self, attrs):
         reason = attrs.get("reason")
@@ -170,7 +188,10 @@ class StockAdjustmentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request and request.user and request.user.is_authenticated:
             validated_data["adjusted_by"] = request.user
-        return super().create(validated_data)
+        adjustment = StockAdjustment(**validated_data)
+        assign_adjustment_number(adjustment)
+        adjustment.save()
+        return adjustment
 
 
 class StockMovementSerializer(serializers.ModelSerializer):

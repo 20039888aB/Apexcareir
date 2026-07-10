@@ -14,6 +14,8 @@ import {
   YAxis,
 } from 'recharts';
 import { PageErrorState, PageSkeleton } from '../../components/apexcareir/PageStates';
+import DashboardCollapsiblePanel from '../../components/apexcareir/DashboardCollapsiblePanel';
+import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import { getDashboardOverview } from '../../services';
 import { useAuthStore } from '../../store';
 import { Link } from 'react-router-dom';
@@ -53,7 +55,8 @@ export default function DashboardPage() {
     return <PageErrorState message="Unable to load dashboard data. Please check backend connectivity and permissions." onRetry={() => dashboardQuery.refetch()} />;
   }
 
-  const { cards, charts, insights, recent_sales, recent_purchases, recent_stock_receipts } = dashboardQuery.data;
+  const { cards, charts, insights, recent_sales, recent_purchases, recent_stock_receipts, top_buyers } =
+    dashboardQuery.data;
   const schedulerVariant =
     cards.scheduler_health === 'critical'
       ? 'scheduler-critical'
@@ -66,51 +69,87 @@ export default function DashboardPage() {
       label: "Today's Sales",
       value: formatCurrency(toSafeNumber(cards.today_sales)),
       hint: 'Live daily performance',
-      to: '/apexcareir-main/app/sales',
+      to: ADMIN_ROUTES.sales,
       variant: 'sales',
+    },
+    {
+      label: "Today's Profit",
+      value: formatCurrency(toSafeNumber(cards.today_profit)),
+      hint: 'Profit recorded today',
+      to: ADMIN_ROUTES.sales,
+      variant: 'profit',
+    },
+    {
+      label: 'Total Revenue (Month)',
+      value: formatCurrency(toSafeNumber(cards.monthly_sales)),
+      hint: 'Monthly sales revenue',
+      to: ADMIN_ROUTES.sales,
+      variant: 'monthly-sales',
+    },
+    {
+      label: 'Inventory Value',
+      value: formatCurrency(toSafeNumber(cards.inventory_value)),
+      hint: 'Current stock valuation',
+      to: ADMIN_ROUTES.inventory,
+      variant: 'inventory-value',
+    },
+    {
+      label: 'Low Stock Alerts',
+      value: `${toSafeNumber(cards.low_stock_count)}`,
+      hint: 'At or below minimum stock',
+      to: ADMIN_ROUTES.inventory,
+      variant: 'inventory',
+    },
+    {
+      label: 'Outstanding Invoices',
+      value: formatCurrency(toSafeNumber(cards.outstanding_invoice_amount)),
+      hint: `${toSafeNumber(cards.pending_invoices)} unpaid or partial`,
+      to: ADMIN_ROUTES.invoices,
+      variant: 'invoices',
+    },
+    {
+      label: 'Pending Invoices',
+      value: `${toSafeNumber(cards.pending_invoices)}`,
+      hint: 'Unpaid or partially paid count',
+      to: ADMIN_ROUTES.invoices,
+      variant: 'invoices',
     },
     {
       label: 'Pending Appointments',
       value: `${toSafeNumber(cards.pending_appointments)}`,
       hint: 'Awaiting admin action',
-      to: '/apexcareir-main/app/appointments?status=pending',
+      to: `${ADMIN_ROUTES.appointments}?status=pending`,
       variant: 'appointments',
     },
     {
       label: 'Pending Contact Requests',
       value: `${toSafeNumber(cards.pending_contact_requests)}`,
       hint: 'Needs response',
-      to: '/apexcareir-main/app/contact-requests?status=new',
+      to: `${ADMIN_ROUTES.contactRequests}?status=new`,
       variant: 'contacts',
-    },
-    {
-      label: 'Low Stock Alerts',
-      value: `${toSafeNumber(cards.low_stock_count)}`,
-      hint: 'At or below minimum stock',
-      to: '/apexcareir-main/app/inventory',
-      variant: 'inventory',
-    },
-    {
-      label: 'Failed Email Notifications',
-      value: `${toSafeNumber(cards.failed_email_notifications)}`,
-      hint: 'Delivery issues to resolve',
-      to: '/apexcareir-main/app/notifications?status=all&q=failed',
-      variant: 'email',
     },
     {
       label: 'Scheduler Health',
       value: `${cards.scheduler_health.toUpperCase()} (${toSafeNumber(cards.overdue_scheduler_jobs)} overdue)`,
       hint: `${toSafeNumber(cards.active_scheduler_jobs)} active jobs | ${toSafeNumber(cards.failed_scheduler_jobs)} failed`,
       variant: schedulerVariant,
-      to: '/apexcareir-main/app/scheduler',
+      to: ADMIN_ROUTES.scheduler,
     },
   ];
 
   const summaryCards = [
-    { label: 'Monthly Sales', value: formatCurrency(toSafeNumber(cards.monthly_sales)), variant: 'monthly-sales' },
-    { label: 'Inventory Value', value: formatCurrency(toSafeNumber(cards.inventory_value)), variant: 'inventory-value' },
-    { label: 'Profit', value: formatCurrency(toSafeNumber(cards.profit)), variant: 'profit' },
+    { label: 'Monthly Profit', value: formatCurrency(toSafeNumber(cards.profit)), variant: 'profit' },
     { label: 'Monthly Expenses', value: formatCurrency(toSafeNumber(cards.monthly_expenses)), variant: 'expenses' },
+    {
+      label: 'Failed Email Notifications',
+      value: `${toSafeNumber(cards.failed_email_notifications)}`,
+      variant: 'email',
+    },
+    {
+      label: 'Scheduler Health',
+      value: `${cards.scheduler_health.toUpperCase()}`,
+      variant: schedulerVariant,
+    },
   ];
 
   return (
@@ -140,6 +179,29 @@ export default function DashboardPage() {
           </article>
         ))}
       </div>
+
+      <article className="apex-data-card p-4">
+        <h3 className="apex-section-title mb-3 text-sm">Top Buyers</h3>
+        <div className="space-y-2">
+          {(top_buyers ?? []).length === 0 && <p className="text-xs text-slate-500">No buyer spending data yet.</p>}
+          {(top_buyers ?? []).map((buyer) => (
+            <Link
+              key={buyer.customer_id}
+              to={ADMIN_ROUTES.customer(buyer.customer_id)}
+              className="apex-data-card-soft block p-2 hover:bg-white"
+            >
+              <p className="text-xs font-semibold text-slate-800">
+                {buyer.customer__customer_number ? `${buyer.customer__customer_number} · ` : ''}
+                {buyer.customer__name}
+                {buyer.customer__company_name ? ` (${buyer.customer__company_name})` : ''}
+              </p>
+              <p className="text-[11px] text-slate-600">
+                {buyer.invoice_count} invoices · {formatCurrency(toSafeNumber(buyer.total_spent))}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </article>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <article className="apex-data-card p-4">
@@ -330,8 +392,12 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <article className="apex-data-card p-4">
-          <h3 className="apex-section-title mb-3 text-sm">Recent Sales</h3>
+        <DashboardCollapsiblePanel
+          title="Recent Sales"
+          subtitle="Latest customer invoices and totals"
+          count={recent_sales.length}
+          tone="sales"
+        >
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs">
               <thead>
@@ -350,7 +416,7 @@ export default function DashboardPage() {
                   </tr>
                 )}
                 {recent_sales.map((sale) => (
-                  <tr key={sale.id} className="border-b border-slate-100">
+                  <tr key={sale.id} className="border-b border-slate-100 transition-colors hover:bg-emerald-50/60">
                     <td className="py-2 pr-2">{sale.invoice_number}</td>
                     <td className="py-2 pr-2">{sale.customer}</td>
                     <td className="py-2 pr-2">{formatCurrency(Number(sale.total))}</td>
@@ -359,10 +425,14 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
-        </article>
+        </DashboardCollapsiblePanel>
 
-        <article className="apex-data-card p-4">
-          <h3 className="apex-section-title mb-3 text-sm">Recent Purchases</h3>
+        <DashboardCollapsiblePanel
+          title="Recent Purchases"
+          subtitle="Latest supplier purchase activity"
+          count={recent_purchases.length}
+          tone="purchases"
+        >
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs">
               <thead>
@@ -381,7 +451,7 @@ export default function DashboardPage() {
                   </tr>
                 )}
                 {recent_purchases.map((purchase) => (
-                  <tr key={purchase.id} className="border-b border-slate-100">
+                  <tr key={purchase.id} className="border-b border-slate-100 transition-colors hover:bg-rose-50/60">
                     <td className="py-2 pr-2">{purchase.invoice_number}</td>
                     <td className="py-2 pr-2">{purchase.supplier__name ?? 'N/A'}</td>
                     <td className="py-2 pr-2">{formatDate(purchase.date_received)}</td>
@@ -390,10 +460,14 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
-        </article>
+        </DashboardCollapsiblePanel>
 
-        <article className="apex-data-card p-4">
-          <h3 className="apex-section-title mb-3 text-sm">Recent Stock Receipts</h3>
+        <DashboardCollapsiblePanel
+          title="Recent Stock Receipts"
+          subtitle="Latest inventory received into stock"
+          count={recent_stock_receipts.length}
+          tone="receipts"
+        >
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs">
               <thead>
@@ -412,7 +486,7 @@ export default function DashboardPage() {
                   </tr>
                 )}
                 {recent_stock_receipts.map((receipt) => (
-                  <tr key={receipt.id} className="border-b border-slate-100">
+                  <tr key={receipt.id} className="border-b border-slate-100 transition-colors hover:bg-amber-50/70">
                     <td className="py-2 pr-2">{receipt.invoice_number}</td>
                     <td className="py-2 pr-2">{receipt.product__name}</td>
                     <td className="py-2 pr-2">{receipt.quantity}</td>
@@ -421,7 +495,7 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
-        </article>
+        </DashboardCollapsiblePanel>
       </div>
     </div>
   );

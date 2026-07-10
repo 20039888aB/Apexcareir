@@ -1,10 +1,21 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Crown, Settings, ShieldCheck, UserCheck, UserPlus, Users, UserX } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import {
+  AdminPageHero,
+  AdminPanel,
+  AdminQuickLinks,
+  AdminRoleBadge,
+  AdminStatCard,
+  AdminStatusBadge,
+  AdminUserAvatar,
+} from '../../components/apexcareir/AdminUi';
 import PermissionChecklist from '../../components/apexcareir/PermissionChecklist';
 import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
+import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import {
   adminResetPassword,
   createUser,
@@ -166,181 +177,227 @@ export default function UsersManagementPage() {
   };
 
   const permissionGroups = permissionsQuery.data?.groups ?? {};
-
   const canManageUsers = currentUser?.role === 'superadmin';
   const sortedUsers = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
 
+  const userStats = useMemo(() => {
+    const total = sortedUsers.length;
+    const active = sortedUsers.filter((user) => user.is_active).length;
+    const superadmins = sortedUsers.filter((user) => user.role === 'superadmin').length;
+    return {
+      total,
+      active,
+      suspended: total - active,
+      superadmins,
+    };
+  }, [sortedUsers]);
+
   if (!canManageUsers) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="apex-admin-message apex-admin-message--error">
         Only SuperAdmin can manage users.
       </div>
     );
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">{editingUser ? 'Edit User' : 'Create User'}</h2>
-        <form className="mt-4 space-y-3" onSubmit={handleSubmit(onSubmit)}>
-          <div>
-            <input
-              placeholder="First Name"
-              {...register('first_name')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+    <div className="apexcareir-ui space-y-5">
+      <AdminPageHero
+        title="Administration"
+        subtitle="Manage users, permissions, and platform access for Apex Care IR."
+      >
+        <AdminStatCard label="Total Users" value={userStats.total} icon={Users} tone="gold" />
+        <AdminStatCard label="Active Accounts" value={userStats.active} hint={`${userStats.suspended} suspended`} icon={UserCheck} />
+        <AdminStatCard label="SuperAdmins" value={userStats.superadmins} icon={Crown} tone="burgundy" />
+        <AdminStatCard label="Permission Groups" value={Object.keys(permissionGroups).length} icon={ShieldCheck} tone="sky" />
+      </AdminPageHero>
+
+      <AdminQuickLinks
+        links={[
+          {
+            to: ADMIN_ROUTES.users,
+            label: 'User Management',
+            description: 'Create, edit, and control staff access.',
+            icon: Users,
+            tone: 'forest',
+          },
+          {
+            to: ADMIN_ROUTES.settings,
+            label: 'Company Settings',
+            description: 'Branding, logo, and invoice details.',
+            icon: Settings,
+            tone: 'gold',
+          },
+        ]}
+      />
+
+      <div className="grid gap-6 xl:grid-cols-[390px_1fr]">
+        <AdminPanel
+          title={editingUser ? 'Edit User' : 'Create User'}
+          description={editingUser ? 'Update account details and permissions.' : 'Add a new team member to the platform.'}
+          icon={UserPlus}
+          tone="gold"
+        >
+          <form className="apex-admin-form-grid" onSubmit={handleSubmit(onSubmit)}>
+            <div className="apex-admin-field">
+              <label>First Name</label>
+              <input placeholder="First Name" {...register('first_name')} />
+              {errors.first_name && <p className="mt-1 text-xs text-red-600">{errors.first_name.message}</p>}
+            </div>
+            <div className="apex-admin-field">
+              <label>Last Name</label>
+              <input placeholder="Last Name" {...register('last_name')} />
+              {errors.last_name && <p className="mt-1 text-xs text-red-600">{errors.last_name.message}</p>}
+            </div>
+            <div className="apex-admin-field">
+              <label>Email</label>
+              <input placeholder="Email" {...register('email')} />
+              {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
+            </div>
+            {!editingUser && (
+              <div className="apex-admin-field">
+                <label>Temporary Password</label>
+                <input type="password" placeholder="Temporary Password" {...register('password')} />
+              </div>
+            )}
+            <div className="apex-admin-field">
+              <label>Role</label>
+              <select {...register('role')}>
+                <option value="staff">Staff</option>
+                <option value="superadmin">SuperAdmin</option>
+              </select>
+            </div>
+            <label className="apex-admin-permission-option">
+              <input type="checkbox" {...register('is_active')} />
+              Account active
+            </label>
+
+            <PermissionChecklist
+              groups={permissionGroups}
+              selectedPermissions={selectedPermissions}
+              onToggle={togglePermission}
+              variant="admin"
             />
-            {errors.first_name && <p className="mt-1 text-xs text-red-600">{errors.first_name.message}</p>}
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button type="submit" className="apex-admin-submit">
+                {editingUser ? 'Update User' : 'Create User'}
+              </button>
+              {editingUser && (
+                <button
+                  type="button"
+                  onClick={clearEdit}
+                  className="apex-admin-action-btn apex-admin-action-btn--neutral"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        </AdminPanel>
+
+        <AdminPanel
+          title="Team Directory"
+          description="Live overview of every account in the system."
+          icon={Users}
+          tone="burgundy"
+        >
+          <div className="apex-admin-table-wrap">
+            <table className="apex-admin-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedUsers.map((user) => {
+                  const fullName = `${user.first_name} ${user.last_name}`.trim();
+                  return (
+                    <tr key={user.id}>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <AdminUserAvatar name={fullName || user.email} role={user.role} />
+                          <span className="font-medium text-slate-800">{fullName || 'Unnamed User'}</span>
+                        </div>
+                      </td>
+                      <td>{user.email}</td>
+                      <td>
+                        <AdminRoleBadge role={user.role} />
+                      </td>
+                      <td>
+                        <AdminStatusBadge active={user.is_active} />
+                      </td>
+                      <td>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => startEdit(user)}
+                            className="apex-admin-action-btn apex-admin-action-btn--edit"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => toggleMutation.mutate(user.id)}
+                            className="apex-admin-action-btn apex-admin-action-btn--warn"
+                          >
+                            {user.is_active ? 'Suspend' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => setAdminResetTargetId(user.id)}
+                            className="apex-admin-action-btn apex-admin-action-btn--neutral"
+                          >
+                            Reset Password
+                          </button>
+                          {user.id !== currentUser?.id ? (
+                            <AdminConfirmButton
+                              label="Delete"
+                              confirmMessage={`Permanently delete user ${user.email}?`}
+                              onConfirm={() => deleteUserMutation.mutateAsync(user.id)}
+                              disabled={deleteUserMutation.isPending}
+                            />
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <div>
-            <input
-              placeholder="Last Name"
-              {...register('last_name')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-            {errors.last_name && <p className="mt-1 text-xs text-red-600">{errors.last_name.message}</p>}
-          </div>
-          <div>
-            <input
-              placeholder="Email"
-              {...register('email')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-            {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
-          </div>
-          {!editingUser && (
-            <div>
-              <input
-                type="password"
-                placeholder="Temporary Password"
-                {...register('password')}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
+
+          {adminResetTargetId && (
+            <div className="mt-4 rounded-xl border border-[rgba(184,149,47,0.2)] bg-gradient-to-r from-[rgba(184,149,47,0.08)] to-[rgba(110,44,62,0.06)] p-4">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <UserX size={16} className="text-burgundy" />
+                Set a new password for the selected user
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="password"
+                  value={adminResetPasswordValue}
+                  onChange={(event) => setAdminResetPasswordValue(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  placeholder="New password"
+                />
+                <button
+                  onClick={() =>
+                    adminResetPasswordMutation.mutate({
+                      userId: adminResetTargetId,
+                      password: adminResetPasswordValue,
+                    })
+                  }
+                  className="apex-admin-submit whitespace-nowrap"
+                >
+                  Save Password
+                </button>
+              </div>
             </div>
           )}
-          <div>
-            <select {...register('role')} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="staff">Staff</option>
-              <option value="superadmin">SuperAdmin</option>
-            </select>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" {...register('is_active')} />
-            Account active
-          </label>
-
-          <PermissionChecklist
-            groups={permissionGroups}
-            selectedPermissions={selectedPermissions}
-            onToggle={togglePermission}
-          />
-
-          <div className="flex gap-2">
-            <button type="submit" className="rounded-lg bg-apex-primary px-4 py-2 text-xs font-semibold text-white">
-              {editingUser ? 'Update User' : 'Create User'}
-            </button>
-            {editingUser && (
-              <button
-                type="button"
-                onClick={clearEdit}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </form>
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Users</h2>
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Role</th>
-                <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedUsers.map((user) => (
-                <tr key={user.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-4">{`${user.first_name} ${user.last_name}`.trim()}</td>
-                  <td className="py-2 pr-4">{user.email}</td>
-                  <td className="py-2 pr-4">{user.role}</td>
-                  <td className="py-2 pr-4">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        user.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                      }`}
-                    >
-                      {user.is_active ? 'Active' : 'Suspended'}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => startEdit(user)}
-                        className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => toggleMutation.mutate(user.id)}
-                        className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"
-                      >
-                        {user.is_active ? 'Suspend' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={() => setAdminResetTargetId(user.id)}
-                        className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"
-                      >
-                        Reset Password
-                      </button>
-                      {user.id !== currentUser?.id ? (
-                        <AdminConfirmButton
-                          label="Delete"
-                          confirmMessage={`Permanently delete user ${user.email}?`}
-                          onConfirm={() => deleteUserMutation.mutateAsync(user.id)}
-                          disabled={deleteUserMutation.isPending}
-                        />
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {adminResetTargetId && (
-          <div className="mt-4 rounded-lg border border-slate-200 p-3">
-            <p className="mb-2 text-xs text-slate-600">Set a new password for selected user.</p>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                value={adminResetPasswordValue}
-                onChange={(event) => setAdminResetPasswordValue(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                placeholder="New password"
-              />
-              <button
-                onClick={() =>
-                  adminResetPasswordMutation.mutate({
-                    userId: adminResetTargetId,
-                    password: adminResetPasswordValue,
-                  })
-                }
-                className="rounded-lg bg-apex-primary px-3 py-2 text-xs font-semibold text-white"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+        </AdminPanel>
+      </div>
     </div>
   );
 }

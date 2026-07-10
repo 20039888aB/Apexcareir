@@ -9,7 +9,7 @@ from apps.finance.models import Expense
 from apps.appointments.models import Appointment, ContactRequest
 from apps.inventory.models import Product, StockReceipt
 from apps.notifications.models import EmailNotificationLog, ScheduledJob
-from apps.sales.models import Sale
+from apps.sales.models import Invoice, Sale
 
 
 def _to_float(value):
@@ -39,6 +39,7 @@ def build_dashboard_overview():
     month_start = today.replace(day=1)
 
     today_sales = _sum_or_zero(Sale.objects.filter(date=today), "total")
+    today_profit = _sum_or_zero(Sale.objects.filter(date=today), "profit")
     monthly_sales = _sum_or_zero(Sale.objects.filter(date__gte=month_start, date__lte=today), "total")
     monthly_expenses = _sum_or_zero(Expense.objects.filter(date__gte=month_start, date__lte=today), "amount")
     monthly_profit = _sum_or_zero(Sale.objects.filter(date__gte=month_start, date__lte=today), "profit")
@@ -51,6 +52,28 @@ def build_dashboard_overview():
     )["total"]
 
     low_stock_count = Product.objects.filter(current_stock__lte=F("minimum_stock"), status=Product.Status.ACTIVE).count()
+    pending_invoices = Invoice.objects.filter(
+        payment_status__in=[Invoice.PaymentStatus.UNPAID, Invoice.PaymentStatus.PARTIALLY_PAID],
+        status__in=[Invoice.Status.ISSUED, Invoice.Status.PARTIALLY_PAID],
+    ).count()
+    outstanding_invoice_amount = Invoice.objects.filter(
+        payment_status__in=[Invoice.PaymentStatus.UNPAID, Invoice.PaymentStatus.PARTIALLY_PAID],
+        status__in=[Invoice.Status.ISSUED, Invoice.Status.PARTIALLY_PAID, Invoice.Status.DRAFT],
+    ).aggregate(
+        total=Coalesce(
+            Sum(F("grand_total") - F("amount_paid"), output_field=DecimalField(max_digits=14, decimal_places=2)),
+            Value(0, output_field=DecimalField(max_digits=14, decimal_places=2)),
+        )
+    )["total"]
+    top_buyers = list(
+        Invoice.objects.filter(customer__isnull=False)
+        .values("customer_id", "customer__name", "customer__company_name", "customer__customer_number")
+        .annotate(
+            total_spent=Coalesce(Sum("grand_total"), Value(0, output_field=DecimalField(max_digits=14, decimal_places=2))),
+            invoice_count=Count("id"),
+        )
+        .order_by("-total_spent")[:5]
+    )
     pending_appointments = Appointment.objects.filter(status=Appointment.Status.PENDING).count()
     pending_contact_requests = ContactRequest.objects.filter(status=ContactRequest.Status.NEW).count()
     failed_email_notifications = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.FAILED).count()
@@ -113,11 +136,15 @@ def build_dashboard_overview():
     return {
         "cards": {
             "today_sales": _to_float(today_sales),
+            "today_profit": _to_float(today_profit),
             "monthly_sales": _to_float(monthly_sales),
             "inventory_value": _to_float(inventory_value),
             "profit": _to_float(monthly_profit),
             "monthly_expenses": _to_float(monthly_expenses),
             "low_stock_count": low_stock_count,
+            "pending_invoices": pending_invoices,
+            "outstanding_invoice_amount": _to_float(outstanding_invoice_amount),
+            "monthly_revenue": _to_float(monthly_sales),
             "pending_appointments": pending_appointments,
             "pending_contact_requests": pending_contact_requests,
             "failed_email_notifications": failed_email_notifications,
@@ -135,6 +162,7 @@ def build_dashboard_overview():
             "inventory_trend": build_inventory_trend(),
         },
         "insights": build_business_insights(),
+        "top_buyers": top_buyers,
     }
 
 

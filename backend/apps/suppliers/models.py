@@ -2,6 +2,7 @@ from django.db import models
 
 
 class Supplier(models.Model):
+    supplier_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255, unique=True)
     contact_person = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=50, blank=True)

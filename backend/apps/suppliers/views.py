@@ -26,7 +26,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
     serializer_class = SupplierSerializer
     required_permission = "suppliers.supplier_management"
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["name", "contact_person", "phone", "email", "products_supplied"]
+    search_fields = ["name", "contact_person", "phone", "email", "products_supplied", "supplier_number"]
     ordering_fields = ["name", "created_at", "updated_at"]
     ordering = ["name"]
 

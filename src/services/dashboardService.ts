@@ -2,11 +2,15 @@ import { httpClient } from '../api';
 
 export type DashboardCards = {
   today_sales: number;
+  today_profit: number;
   monthly_sales: number;
+  monthly_revenue: number;
+  outstanding_invoice_amount: number;
   inventory_value: number;
   profit: number;
   monthly_expenses: number;
   low_stock_count: number;
+  pending_invoices: number;
   pending_appointments: number;
   pending_contact_requests: number;
   failed_email_notifications: number;
@@ -14,6 +18,15 @@ export type DashboardCards = {
   overdue_scheduler_jobs: number;
   failed_scheduler_jobs: number;
   scheduler_health: 'healthy' | 'warning' | 'critical' | string;
+};
+
+export type TopBuyerInsight = {
+  customer_id: number;
+  customer__name: string;
+  customer__company_name: string;
+  customer__customer_number: string;
+  total_spent: number;
+  invoice_count: number;
 };
 
 export type RecentSale = {
@@ -107,6 +120,7 @@ export type DashboardOverviewResponse = {
   recent_sales: RecentSale[];
   recent_purchases: RecentPurchase[];
   recent_stock_receipts: RecentStockReceipt[];
+  top_buyers: TopBuyerInsight[];
   charts: {
     sales_trend: SalesTrendPoint[];
     revenue_trend: RevenueTrendPoint[];

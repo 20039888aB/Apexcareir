@@ -13,7 +13,7 @@ env = environ.Env(
     CSRF_TRUSTED_ORIGINS=(list, ["http://localhost:5173", "http://127.0.0.1:5173"]),
     DATABASE_URL=(str, "postgres://postgres:postgres@127.0.0.1:5432/apexcareir_db"),
     TIME_ZONE=(str, "Africa/Nairobi"),
-    FRONTEND_PASSWORD_RESET_URL=(str, "http://localhost:5173/apexcareir-main/reset-password"),
+    FRONTEND_PASSWORD_RESET_URL=(str, "http://localhost:5173/admin1/reset-password"),
     FRONTEND_APP_URL=(str, "http://localhost:5173"),
     DEFAULT_FROM_EMAIL=(str, "no-reply@apexcareir.local"),
     EMAIL_HOST=(str, "smtp.gmail.com"),
@@ -75,7 +75,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [

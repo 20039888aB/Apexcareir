@@ -102,3 +102,5 @@ class WeeklyInsightsTests(APITestCase):
         self.assertIn("Top Sellers / Overselling Items", html)
         self.assertIn("Highest Profit Margin Products", html)
         self.assertIn("Lowest Profit Margin Products", html)
+        self.assertIn('<img src="data:image/', html)
+        self.assertIn("apexcareir@gmail.com", html)

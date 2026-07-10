@@ -30,6 +30,7 @@ class Expense(models.Model):
         SHARED = "shared", "Shared / General"
 
     category = models.CharField(max_length=120)
+    expense_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
     expense_type = models.CharField(
         max_length=40,
         choices=ExpenseType.choices,
@@ -62,6 +63,7 @@ class Expense(models.Model):
 
 
 class Payroll(models.Model):
+    employee_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
     employee = models.CharField(max_length=255)
     salary = models.DecimalField(max_digits=12, decimal_places=2)
     allowances = models.DecimalField(max_digits=12, decimal_places=2, default=0)

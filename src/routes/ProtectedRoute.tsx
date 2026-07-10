@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { ADMIN_ROUTES } from '../constants/adminRoutes';
 import { getMe } from '../services';
 import { useAuthStore } from '../store';
 
@@ -47,7 +48,7 @@ export default function ProtectedRoute({
   }, [isError, shouldFetchUser, clearTokens, queryClient]);
 
   if (!accessToken) {
-    return <Navigate to="/apexcareir-main/login" state={{ from: location }} replace />;
+    return <Navigate to={ADMIN_ROUTES.login} state={{ from: location }} replace />;
   }
 
   if (shouldFetchUser && isLoading) {
@@ -55,26 +56,26 @@ export default function ProtectedRoute({
   }
 
   if (shouldFetchUser && isError) {
-    return <Navigate to="/apexcareir-main/login" replace />;
+    return <Navigate to={ADMIN_ROUTES.login} replace />;
   }
 
   if (!resolvedUser) {
-    return <Navigate to="/apexcareir-main/login" replace />;
+    return <Navigate to={ADMIN_ROUTES.login} replace />;
   }
 
   if (superAdminOnly && resolvedUser.role !== 'superadmin') {
-    return <Navigate to="/apexcareir-main/unauthorized" replace />;
+    return <Navigate to={ADMIN_ROUTES.unauthorized} replace />;
   }
 
   if (requiredAnyPermissions?.length && resolvedUser.role !== 'superadmin') {
     const hasAny = requiredAnyPermissions.some((permission) => resolvedUser.permissions.includes(permission));
     if (!hasAny) {
-      return <Navigate to="/apexcareir-main/unauthorized" replace />;
+      return <Navigate to={ADMIN_ROUTES.unauthorized} replace />;
     }
   }
 
   if (requiredPermission && resolvedUser.role !== 'superadmin' && !resolvedUser.permissions.includes(requiredPermission)) {
-    return <Navigate to="/apexcareir-main/unauthorized" replace />;
+    return <Navigate to={ADMIN_ROUTES.unauthorized} replace />;
   }
 
   return <Outlet />;

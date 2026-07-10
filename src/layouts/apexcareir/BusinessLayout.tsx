@@ -1,36 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, LogOut, Menu, UserCircle, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import BusinessSidebar from '../../components/apexcareir/BusinessSidebar';
+import CompanyBrandingHeader from '../../components/apexcareir/CompanyBrandingHeader';
+import QuickPreferencesPanel from '../../components/apexcareir/QuickPreferencesPanel';
+import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import { listNotifications, logout, markAllNotificationsRead, markNotificationRead } from '../../services';
 import { useAuthStore } from '../../store';
-
-type ModuleItem = {
-  to: string;
-  label: string;
-  permission?: string;
-  permissionsAny?: string[];
-};
-
-const moduleItems: ModuleItem[] = [
-  { to: '/apexcareir-main/app/dashboard', label: 'Dashboard', permission: 'dashboard.dashboard' },
-  { to: '/apexcareir-main/app/inventory', label: 'Inventory', permission: 'inventory.product_management' },
-  { to: '/apexcareir-main/app/sales', label: 'Sales', permission: 'sales.sales_management' },
-  {
-    to: '/apexcareir-main/app/finance',
-    label: 'Finance',
-    permissionsAny: ['finance.expense_tracking', 'finance.payroll'],
-  },
-  { to: '/apexcareir-main/app/suppliers', label: 'Suppliers', permission: 'suppliers.supplier_management' },
-  { to: '/apexcareir-main/app/reports', label: 'Reports', permission: 'reports.reports' },
-  { to: '/apexcareir-main/app/notifications', label: 'Notifications', permission: 'notifications.notifications' },
-  { to: '/apexcareir-main/app/scheduler', label: 'Scheduler', permission: 'notifications.notifications' },
-  { to: '/apexcareir-main/app/audit-logs', label: 'Audit Logs', permission: 'audit_logs.audit_logs' },
-  { to: '/apexcareir-main/app/appointments', label: 'Appointments', permission: 'appointments.appointment_management' },
-  { to: '/apexcareir-main/app/contact-requests', label: 'Contact Requests', permission: 'appointments.appointment_management' },
-  { to: '/apexcareir-main/app/users', label: 'Users' },
-  { to: '/apexcareir-main/app/profile', label: 'Profile' },
-];
+import { canAccessNavItem, filterVisibleNavGroups } from '../../utils/navAccess';
 
 export default function BusinessLayout() {
   const navigate = useNavigate();
@@ -42,24 +20,9 @@ export default function BusinessLayout() {
   const refreshToken = useAuthStore((state) => state.refreshToken);
   const clearTokens = useAuthStore((state) => state.clearTokens);
 
-  const canAccess = (permission?: string, permissionsAny?: string[]) => {
-    if (!permission && !permissionsAny?.length) {
-      return true;
-    }
-    if (!user) {
-      return false;
-    }
-    if (user.role === 'superadmin') {
-      return true;
-    }
-    if (permissionsAny?.length) {
-      return permissionsAny.some((permissionCode) => user.permissions.includes(permissionCode));
-    }
-    return Boolean(permission && user.permissions.includes(permission));
-  };
-
-  const visibleItems = moduleItems.filter((item) => canAccess(item.permission, item.permissionsAny));
-  const canViewNotifications = canAccess('notifications.notifications');
+  const visibleNavGroups = useMemo(() => filterVisibleNavGroups(user), [user]);
+  const navigationMode = user?.sidebar_navigation_mode ?? 'accordion';
+  const canViewNotifications = canAccessNavItem(user, 'notifications.notifications');
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'active'],
@@ -91,7 +54,7 @@ export default function BusinessLayout() {
       // clear local session even if API logout fails
     } finally {
       clearTokens();
-      navigate('/apexcareir-main/login');
+      navigate(ADMIN_ROUTES.login);
     }
   };
 
@@ -117,29 +80,19 @@ export default function BusinessLayout() {
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <div className="flex items-center justify-between border-b border-[rgba(184,149,47,0.16)] px-5 py-4">
-            <p className="text-sm font-semibold text-apex-primary">Apexcareir main</p>
-            <button className="apex-btn-soft lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
-              <X size={18} />
-            </button>
+          <div className="border-b border-[rgba(184,149,47,0.16)] px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <CompanyBrandingHeader compact />
+              <button className="apex-btn-soft lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
+                <X size={18} />
+              </button>
+            </div>
           </div>
-          <nav className="space-y-1 p-3">
-            {visibleItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `apex-nav-link ${isActive ? 'apex-nav-link-active' : ''} block rounded-lg px-4 py-2 text-sm transition ${
-                    isActive
-                      ? 'bg-gradient-to-r from-forest to-gold text-white shadow-md'
-                      : 'text-slate-700 hover:bg-white/75 hover:text-forest'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          <BusinessSidebar
+            groups={visibleNavGroups}
+            navigationMode={navigationMode}
+            onNavigate={() => setSidebarOpen(false)}
+          />
         </aside>
 
         <div className="min-h-screen flex-1 lg:ml-0">
@@ -154,6 +107,7 @@ export default function BusinessLayout() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <QuickPreferencesPanel />
               {canViewNotifications && (
                 <div className="relative" ref={notificationPanelRef}>
                   <button
@@ -211,7 +165,7 @@ export default function BusinessLayout() {
                         className="mt-2 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                         onClick={() => {
                           setNotificationsOpen(false);
-                          navigate('/apexcareir-main/app/notifications');
+                          navigate(ADMIN_ROUTES.notifications);
                         }}
                       >
                         Open Notification Center

@@ -51,3 +51,15 @@ class AccountsAPITests(APITestCase):
         }
         self.assertIn("notifications.notifications", all_codes)
         self.assertIn("audit_logs.audit_logs", all_codes)
+
+    def test_user_can_update_sidebar_navigation_preference(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            "/api/v1/auth/me/preferences/",
+            {"sidebar_navigation_mode": "multi_expand"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["sidebar_navigation_mode"], "multi_expand")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.sidebar_navigation_mode, "multi_expand")

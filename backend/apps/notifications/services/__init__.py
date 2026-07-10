@@ -11,6 +11,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.common.services.company_branding import build_report_email_header_html, get_company_branding
 from apps.finance.models import Expense
 from apps.inventory.models import Product
 from apps.sales.models import Sale
@@ -64,16 +65,18 @@ def _safe_subject(subject: str):
 
 def _build_email_html(*, title: str, message: str, notification: Notification):
     now = timezone.localtime().strftime("%Y-%m-%d %H:%M")
-    logo_url = f"{getattr(settings, 'FRONTEND_APP_URL', 'http://localhost:5173')}/logo.jpeg"
+    branding = get_company_branding()
+    company_name = branding["company_name"]
+    header_html = build_report_email_header_html(
+        title=f"{company_name} Notification",
+        subtitle=title,
+        branding=branding,
+    )
     return f"""
     <div style="font-family: Arial, sans-serif; background:#f7fafc; padding:24px; color:#1f2937;">
       <div style="max-width:680px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">
-        <div style="padding:16px 20px; background:#6E2C3E; color:#fff;">
-          <img src="{logo_url}" alt="Apex Care IR" style="height:36px; vertical-align:middle; margin-right:10px;" />
-          <span style="font-size:16px; font-weight:700;">Apex Care IR Notification</span>
-        </div>
+        {header_html}
         <div style="padding:20px;">
-          <h2 style="margin:0 0 12px; color:#111827; font-size:20px;">{title}</h2>
           <p style="margin:0 0 16px; line-height:1.6;">{message}</p>
           <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
             <p style="margin:0; font-size:13px;"><strong>Notification Type:</strong> {notification.notification_type}</p>
@@ -83,7 +86,7 @@ def _build_email_html(*, title: str, message: str, notification: Notification):
           </div>
         </div>
         <div style="padding:14px 20px; background:#f3f4f6; color:#6b7280; font-size:12px;">
-          Apex Care IR &middot; Inventory & Business Management System
+          {company_name} &middot; {branding['support_email']} &middot; Inventory & Business Management System
         </div>
       </div>
     </div>

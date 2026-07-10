@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 
 export default function UnauthorizedPage() {
   return (
@@ -9,7 +10,7 @@ export default function UnauthorizedPage() {
           Your account does not have permission to access this page.
         </p>
         <Link
-          to="/apexcareir-main/app/dashboard"
+          to={ADMIN_ROUTES.dashboard}
           className="mt-4 inline-block rounded-lg bg-apex-primary px-4 py-2 text-sm font-semibold text-white"
         >
           Go to Dashboard

@@ -13,17 +13,42 @@ export {
   toggleUserActive,
   updateUser,
   updateProfile,
+  updateUserPreferences,
   type ChangePasswordInput,
   type ForgotPasswordInput,
   type LoginInput,
   type ManagedUser,
   type PermissionMatrixResponse,
   type ProfileUpdateInput,
+  type UserPreferencesInput,
   type ResetPasswordInput,
   type UserCreateInput,
   type UserUpdateInput,
 } from './authService';
 export { getDashboardOverview, type DashboardOverviewResponse } from './dashboardService';
+export { getCompanySettings, updateCompanySettings, type CompanySettings, type CompanySettingsInput } from './settingsService';
+export {
+  createInvoice,
+  downloadInvoicePdf,
+  downloadSaleInvoicePdf,
+  emailInvoice,
+  getInvoice,
+  getInvoiceTimeline,
+  listInvoices,
+  printInvoicePdf,
+  regenerateInvoice,
+  updateInvoice,
+  updateInvoiceStatus,
+  type Invoice,
+  recordInvoicePayment,
+  listInvoicePayments,
+  type InvoiceEmailInput,
+  type InvoiceLineInput,
+  type InvoiceInput,
+  type InvoicePaymentStatus,
+  type InvoiceStatus,
+} from './invoiceService';
+export { getTransactionTimeline, type TransactionEvent } from './timelineService';
 export {
   archiveProduct,
   createBulkStockReceipt,
@@ -64,7 +89,7 @@ export {
   type Supplier,
   type SupplierInvoice,
 } from './suppliersService';
-export { createSale, deleteSale, listCustomerRecords, listSales, type CustomerRecord, type Sale } from './salesService';
+export { createSale, deleteSale, getCustomer, getCustomerInvoices, getCustomerPurchaseHistory, listCustomerRecords, listCustomers, listSales, type Customer, type CustomerRecord, type Sale } from './salesService';
 export {
   createExpense,
   createPayroll,

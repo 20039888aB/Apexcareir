@@ -24,6 +24,7 @@ from .serializers import (
     ProfileUpdateSerializer,
     ResetPasswordConfirmSerializer,
     UserCreateSerializer,
+    UserPreferencesSerializer,
     UserSerializer,
     UserUpdateSerializer,
     build_password_reset_payload,
@@ -95,7 +96,7 @@ class ForgotPasswordAPIView(APIView):
             frontend_reset_url = getattr(
                 settings,
                 "FRONTEND_PASSWORD_RESET_URL",
-                "http://localhost:5173/apexcareir-main/reset-password",
+                "http://localhost:5173/admin1/reset-password",
             )
             payload = build_password_reset_payload(user, frontend_reset_url)
             NotificationService.send(
@@ -168,6 +169,30 @@ class ProfileAPIView(APIView):
             module="accounts",
             description=f"User {request.user.email} updated profile details.",
             target=request.user,
+        )
+        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+
+
+class UserPreferencesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(
+            {"sidebar_navigation_mode": request.user.sidebar_navigation_mode},
+            status=status.HTTP_200_OK,
+        )
+
+    def patch(self, request):
+        serializer = UserPreferencesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.update(request.user, serializer.validated_data)
+        log_audit_event(
+            request=request,
+            action="user_preferences_update",
+            module="accounts",
+            description=f"User {request.user.email} updated sidebar navigation preference.",
+            target=request.user,
+            metadata={"sidebar_navigation_mode": request.user.sidebar_navigation_mode},
         )
         return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
 

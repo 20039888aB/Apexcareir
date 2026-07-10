@@ -2,6 +2,8 @@ import { create } from 'zustand';
 
 export type UserRole = 'superadmin' | 'staff';
 
+export type SidebarNavigationMode = 'accordion' | 'multi_expand';
+
 export type AuthUser = {
   id: number;
   first_name: string;
@@ -9,6 +11,7 @@ export type AuthUser = {
   email: string;
   role: UserRole;
   permissions: string[];
+  sidebar_navigation_mode?: SidebarNavigationMode;
   is_active: boolean;
 };
 

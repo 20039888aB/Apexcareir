@@ -27,6 +27,7 @@ class Product(models.Model):
         DISCONTINUED = "discontinued", "Discontinued"
 
     name = models.CharField(max_length=255)
+    product_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
     sku = models.CharField(max_length=100, unique=True)
     barcode = models.CharField(max_length=120, blank=True)
     category = models.ForeignKey(
@@ -79,6 +80,7 @@ class StockReceipt(models.Model):
         blank=True,
     )
     invoice_number = models.CharField(max_length=100)
+    receipt_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="stock_receipts")
     quantity = models.PositiveIntegerField()
     purchase_price = models.DecimalField(max_digits=12, decimal_places=2)
@@ -164,6 +166,7 @@ class StockReceiptBatch(models.Model):
         blank=True,
     )
     invoice_number = models.CharField(max_length=100)
+    receipt_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
     date_received = models.DateField()
     additional_expenses = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     received_by = models.ForeignKey(
@@ -274,6 +277,7 @@ class StockAdjustment(models.Model):
         INCREASE = "increase", "Increase"
         DECREASE = "decrease", "Decrease"
 
+    adjustment_number = models.CharField(max_length=30, unique=True, null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="stock_adjustments")
     reason = models.CharField(max_length=20, choices=Reason.choices)
     operation = models.CharField(max_length=10, choices=Operation.choices)

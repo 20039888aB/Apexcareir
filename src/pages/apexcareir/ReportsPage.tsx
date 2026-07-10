@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import CompanyBrandingHeader from '../../components/apexcareir/CompanyBrandingHeader';
 import { EmptyState, PageErrorState, PageSkeleton } from '../../components/apexcareir/PageStates';
 import { exportReport, getReport, type ExportType, type ReportType } from '../../services';
 
@@ -58,10 +59,10 @@ export default function ReportsPage() {
   return (
     <div className="apexcareir-ui space-y-4">
       <section className="apex-glass-panel p-4">
-        <h2 className="text-lg font-semibold text-slate-900">Reports & Analytics</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Generate and export business reports in CSV, Excel, or PDF with date-range and search filters.
-        </p>
+        <CompanyBrandingHeader
+          title="Reports & Analytics"
+          subtitle="Generate and export business reports with date-range and search filters."
+        />
       </section>
 
       <section className="apex-glass-panel p-4">

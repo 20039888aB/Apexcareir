@@ -1,8 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
+import BuyerPicker from '../../components/apexcareir/BuyerPicker';
+import InvoiceEmailModal from '../../components/apexcareir/InvoiceEmailModal';
+import TransactionTimeline from '../../components/apexcareir/TransactionTimeline';
 import { useAuth } from '../../hooks';
-import { createSale, deleteSale, listCustomerRecords, listProducts, listSales, type Sale } from '../../services';
+import {
+  createSale,
+  deleteSale,
+  downloadSaleInvoicePdf,
+  emailInvoice,
+  getCustomerPurchaseHistory,
+  listCustomerRecords,
+  listCustomers,
+  listProducts,
+  listSales,
+  type Customer,
+  type Sale,
+} from '../../services';
 
 type SalesTab = 'entry' | 'history' | 'customers';
 
@@ -16,27 +33,31 @@ function formatCurrency(value: string | number) {
   return new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(Number(value || 0));
 }
 
-function generateInvoiceNumber() {
-  const now = new Date();
-  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
-    now.getDate(),
-  ).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(
-    2,
-    '0',
-  )}${String(now.getSeconds()).padStart(2, '0')}`;
-  return `INV-${stamp}`;
-}
-
 export default function SalesPage() {
   const { isSuperAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<SalesTab>('entry');
   const [salesSearch, setSalesSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
-  const [invoiceDraft, setInvoiceDraft] = useState(generateInvoiceNumber());
   const [lastCreatedSale, setLastCreatedSale] = useState<Sale | null>(null);
+  const [lastSaleCustomerEmail, setLastSaleCustomerEmail] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [timelineReference, setTimelineReference] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState('');
+  const [emailTarget, setEmailTarget] = useState<{
+    id: number;
+    invoiceNumber: string;
+    customerName: string;
+    customerEmail: string;
+  } | null>(null);
+  const [selectedBuyerId, setSelectedBuyerId] = useState('');
+  const [selectedBuyerLogoUrl, setSelectedBuyerLogoUrl] = useState<string | null>(null);
   const [entryForm, setEntryForm] = useState({
     customer: '',
+    customer_company: '',
+    customer_phone: '',
+    customer_email: '',
+    customer_address: '',
     product: '',
     quantity: 1,
     price: 0,
@@ -61,15 +82,42 @@ export default function SalesPage() {
     queryFn: () => listCustomerRecords(customerSearch || undefined),
   });
 
+  const customersQuery = useQuery({
+    queryKey: ['customers', 'picker'],
+    queryFn: () => listCustomers(),
+  });
+
+  const purchaseHistoryQuery = useQuery({
+    queryKey: ['sales', 'purchase-history', selectedCustomerId],
+    queryFn: () => getCustomerPurchaseHistory(selectedCustomerId as number),
+    enabled: selectedCustomerId !== null,
+  });
+
   const createSaleMutation = useMutation({
     mutationFn: createSale,
     onSuccess: async (sale) => {
+      setLastSaleCustomerEmail(entryForm.customer_email);
       setLastCreatedSale(sale);
-      setInvoiceDraft(generateInvoiceNumber());
-      setEntryForm((current) => ({ ...current, customer: '', quantity: 1, discount: 0, tax: 0 }));
+      setActionMessage(
+        `Sale ${sale.sale_number} saved. Invoice ${sale.invoice_number} generated. Buyer details stored for future use.`,
+      );
+      setSelectedBuyerId('');
+      setEntryForm((current) => ({
+        ...current,
+        customer: '',
+        customer_company: '',
+        customer_phone: '',
+        customer_email: '',
+        customer_address: '',
+        quantity: 1,
+        discount: 0,
+        tax: 0,
+      }));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['sales', 'history'] }),
         queryClient.invalidateQueries({ queryKey: ['sales', 'customers'] }),
+        queryClient.invalidateQueries({ queryKey: ['customers'] }),
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
         queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] }),
         queryClient.invalidateQueries({ queryKey: ['inventory', 'low-stock'] }),
         queryClient.invalidateQueries({ queryKey: ['dashboard', 'overview'] }),
@@ -83,10 +131,22 @@ export default function SalesPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['sales', 'history'] }),
         queryClient.invalidateQueries({ queryKey: ['sales', 'customers'] }),
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
         queryClient.invalidateQueries({ queryKey: ['inventory', 'products'] }),
         queryClient.invalidateQueries({ queryKey: ['dashboard', 'overview'] }),
       ]);
     },
+  });
+
+  const emailMutation = useMutation({
+    mutationFn: ({ invoiceId, email }: { invoiceId: number; email?: string }) =>
+      emailInvoice(invoiceId, email ? { email } : {}),
+    onSuccess: (result) => {
+      const recipients = result.recipients?.length ? result.recipients.join(', ') : result.recipient;
+      setActionMessage(`Invoice emailed to ${recipients}.`);
+      setEmailTarget(null);
+    },
+    onError: () => setActionMessage('Unable to email invoice. Add a valid recipient email and try again.'),
   });
 
   const selectedProduct = (productsQuery.data ?? []).find((product) => product.id === Number(entryForm.product));
@@ -99,12 +159,29 @@ export default function SalesPage() {
     [calculatedTotal, entryForm.cost_price, entryForm.quantity],
   );
 
+  const applyExistingCustomer = (customer: Customer) => {
+    setSelectedBuyerId(String(customer.id));
+    setSelectedBuyerLogoUrl(customer.logo_url);
+    setEntryForm((current) => ({
+      ...current,
+      customer: customer.name,
+      customer_company: customer.company_name,
+      customer_phone: customer.phone,
+      customer_email: customer.email,
+      customer_address: customer.address,
+    }));
+  };
+
   const handleEntrySubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!entryForm.customer.trim() || !entryForm.product) return;
+    setActionMessage('');
     createSaleMutation.mutate({
-      invoice_number: invoiceDraft,
       customer: entryForm.customer.trim(),
+      customer_company: entryForm.customer_company.trim(),
+      customer_phone: entryForm.customer_phone.trim(),
+      customer_email: entryForm.customer_email.trim(),
+      customer_address: entryForm.customer_address.trim(),
       product: Number(entryForm.product),
       quantity: Number(entryForm.quantity),
       price: Number(entryForm.price),
@@ -131,28 +208,74 @@ export default function SalesPage() {
         </div>
       </div>
 
+      {actionMessage && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{actionMessage}</div>
+      )}
+
       {activeTab === 'entry' && (
         <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <section className="apex-glass-panel apex-animate-in p-4">
             <h3 className="text-sm font-semibold text-slate-800">Create Sale</h3>
+            <p className="mt-1 text-xs text-slate-600">
+              Sale and invoice numbers are assigned automatically. Buyer details are saved for reuse on future sales.
+            </p>
             <form className="mt-3 grid gap-2 sm:grid-cols-2" onSubmit={handleEntrySubmit}>
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-slate-700">Invoice Number</label>
-                <input
-                  value={invoiceDraft}
-                  onChange={(event) => setInvoiceDraft(event.target.value)}
-                  placeholder="Invoice number"
-                  className="sm:col-span-2"
-                />
-              </div>
+              <BuyerPicker
+                customers={customersQuery.data ?? []}
+                value={selectedBuyerId}
+                logoUrl={selectedBuyerLogoUrl}
+                isLoading={customersQuery.isLoading}
+                onSelect={applyExistingCustomer}
+                onClear={() => {
+                  setSelectedBuyerId('');
+                  setSelectedBuyerLogoUrl(null);
+                }}
+              />
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-xs font-semibold text-slate-700">Customer Name</label>
                 <input
                   value={entryForm.customer}
-                  onChange={(event) => setEntryForm((current) => ({ ...current, customer: event.target.value }))}
+                  onChange={(event) => {
+                    setSelectedBuyerId('');
+                    setSelectedBuyerLogoUrl(null);
+                    setEntryForm((current) => ({ ...current, customer: event.target.value }));
+                  }}
                   placeholder="Customer"
                   className="sm:col-span-2"
                   required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Company Name</label>
+                <input
+                  value={entryForm.customer_company}
+                  onChange={(event) => setEntryForm((current) => ({ ...current, customer_company: event.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Phone</label>
+                <input
+                  value={entryForm.customer_phone}
+                  onChange={(event) => setEntryForm((current) => ({ ...current, customer_phone: event.target.value }))}
+                  placeholder="Phone"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Email</label>
+                <input
+                  type="email"
+                  value={entryForm.customer_email}
+                  onChange={(event) => setEntryForm((current) => ({ ...current, customer_email: event.target.value }))}
+                  placeholder="Email"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Address</label>
+                <input
+                  value={entryForm.customer_address}
+                  onChange={(event) => setEntryForm((current) => ({ ...current, customer_address: event.target.value }))}
+                  placeholder="Physical address"
                 />
               </div>
               <div className="sm:col-span-2">
@@ -175,6 +298,7 @@ export default function SalesPage() {
                   <option value="">Select product</option>
                   {(productsQuery.data ?? []).map((product) => (
                     <option key={product.id} value={product.id}>
+                      {product.product_number ? `${product.product_number} · ` : ''}
                       {product.name} ({product.sku}) - Stock: {product.current_stock}
                     </option>
                   ))}
@@ -247,7 +371,7 @@ export default function SalesPage() {
                 />
               </div>
               <button disabled={createSaleMutation.isPending} className="sm:col-span-2">
-                {createSaleMutation.isPending ? 'Saving Sale...' : 'Save Sale'}
+                {createSaleMutation.isPending ? 'Saving Sale...' : 'Save Sale & Generate Invoice'}
               </button>
             </form>
           </section>
@@ -256,7 +380,8 @@ export default function SalesPage() {
             <h3 className="text-sm font-semibold text-slate-800">Invoice Preview</h3>
             <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white/85 p-3 text-xs">
               <p>
-                <span className="text-slate-500">Invoice:</span> <span className="font-semibold">{invoiceDraft}</span>
+                <span className="text-slate-500">Invoice:</span>{' '}
+                <span className="font-semibold">Auto-generated on save</span>
               </p>
               <p>
                 <span className="text-slate-500">Customer:</span>{' '}
@@ -284,9 +409,38 @@ export default function SalesPage() {
             {lastCreatedSale && (
               <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
                 <p className="font-semibold">Latest sale saved successfully.</p>
-                <p className="mt-1">Invoice: {lastCreatedSale.invoice_number}</p>
+                <p className="mt-1">Sale: {lastCreatedSale.sale_number}</p>
+                <p>Invoice: {lastCreatedSale.invoice_number}</p>
                 <p>Total: {formatCurrency(lastCreatedSale.total)}</p>
                 <p>Profit: {formatCurrency(lastCreatedSale.profit)}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="apex-btn-soft !px-2 !py-1"
+                    onClick={() =>
+                      downloadSaleInvoicePdf(lastCreatedSale.id, `${lastCreatedSale.invoice_number}.pdf`)
+                    }
+                  >
+                    Download PDF
+                  </button>
+                  {lastCreatedSale.invoice_id && (
+                    <button
+                      type="button"
+                      className="apex-btn-soft !px-2 !py-1"
+                      disabled={emailMutation.isPending}
+                      onClick={() =>
+                        setEmailTarget({
+                          id: lastCreatedSale.invoice_id as number,
+                          invoiceNumber: lastCreatedSale.invoice_number ?? '',
+                          customerName: lastCreatedSale.customer,
+                          customerEmail: lastSaleCustomerEmail,
+                        })
+                      }
+                    >
+                      Email Invoice
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </section>
@@ -301,7 +455,7 @@ export default function SalesPage() {
               <input
                 value={salesSearch}
                 onChange={(event) => setSalesSearch(event.target.value)}
-                placeholder="Search invoice, customer, product..."
+                placeholder="Search sale number, invoice, customer, product..."
                 className="w-full md:max-w-sm"
               />
             </div>
@@ -310,28 +464,79 @@ export default function SalesPage() {
             <table className="min-w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
+                  <th className="py-2 pr-2">Sale #</th>
                   <th className="py-2 pr-2">Invoice</th>
                   <th className="py-2 pr-2">Customer</th>
                   <th className="py-2 pr-2">Product</th>
                   <th className="py-2 pr-2">Qty</th>
                   <th className="py-2 pr-2">Total</th>
-                  <th className="py-2 pr-2">Profit</th>
+                  <th className="py-2 pr-2">Payment</th>
                   <th className="py-2 pr-2">Date</th>
+                  <th className="py-2 pr-2">Actions</th>
                   {isSuperAdmin ? <th className="py-2 pr-2">Admin</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {(salesHistoryQuery.data ?? []).map((sale) => (
                   <tr key={sale.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-2">{sale.sale_number}</td>
                     <td className="py-2 pr-2">{sale.invoice_number}</td>
-                    <td className="py-2 pr-2">{sale.customer}</td>
+                    <td className="py-2 pr-2">
+                      {sale.customer_record ? (
+                        <Link
+                          to={ADMIN_ROUTES.customer(sale.customer_record)}
+                          className="font-medium text-apex-primary hover:underline"
+                        >
+                          {sale.customer}
+                        </Link>
+                      ) : (
+                        sale.customer
+                      )}
+                    </td>
                     <td className="py-2 pr-2">{sale.product_name}</td>
                     <td className="py-2 pr-2">{sale.quantity}</td>
                     <td className="py-2 pr-2">{formatCurrency(sale.total)}</td>
-                    <td className={`py-2 pr-2 ${Number(sale.profit) < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
-                      {formatCurrency(sale.profit)}
-                    </td>
+                    <td className="py-2 pr-2">{sale.payment_status ?? 'unpaid'}</td>
                     <td className="py-2 pr-2">{sale.date}</td>
+                    <td className="py-2 pr-2">
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          className="apex-btn-soft !px-2 !py-1 text-[10px]"
+                          onClick={() => downloadSaleInvoicePdf(sale.id, `${sale.invoice_number}.pdf`)}
+                        >
+                          PDF
+                        </button>
+                        {sale.invoice_id && (
+                          <button
+                            type="button"
+                            className="apex-btn-soft !px-2 !py-1 text-[10px]"
+                            disabled={emailMutation.isPending}
+                            onClick={() =>
+                              setEmailTarget({
+                                id: sale.invoice_id as number,
+                                invoiceNumber: sale.invoice_number ?? '',
+                                customerName: sale.customer,
+                                customerEmail: '',
+                              })
+                            }
+                          >
+                            Email
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="apex-btn-soft !px-2 !py-1 text-[10px]"
+                          onClick={() =>
+                            setTimelineReference(
+                              timelineReference === sale.sale_number ? null : sale.sale_number,
+                            )
+                          }
+                        >
+                          Timeline
+                        </button>
+                      </div>
+                    </td>
                     {isSuperAdmin ? (
                       <td className="py-2 pr-2">
                         <AdminConfirmButton
@@ -347,6 +552,15 @@ export default function SalesPage() {
               </tbody>
             </table>
           </div>
+
+          {timelineReference && (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-white/80 p-3">
+              <h4 className="text-xs font-semibold text-slate-800">Timeline — {timelineReference}</h4>
+              <div className="mt-2">
+                <TransactionTimeline referenceNumber={timelineReference} module="sales" />
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -358,7 +572,7 @@ export default function SalesPage() {
               <input
                 value={customerSearch}
                 onChange={(event) => setCustomerSearch(event.target.value)}
-                placeholder="Search customer..."
+                placeholder="Search customer name or number..."
                 className="w-full md:max-w-sm"
               />
             </div>
@@ -367,26 +581,97 @@ export default function SalesPage() {
             <table className="min-w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
+                  <th className="py-2 pr-2">Customer #</th>
                   <th className="py-2 pr-2">Customer</th>
                   <th className="py-2 pr-2">Sale Count</th>
                   <th className="py-2 pr-2">Total Sales</th>
                   <th className="py-2 pr-2">Last Purchase</th>
+                  <th className="py-2 pr-2">History</th>
                 </tr>
               </thead>
               <tbody>
                 {(customerRecordsQuery.data?.results ?? []).map((record) => (
-                  <tr key={record.customer} className="border-b border-slate-100">
+                  <tr key={`${record.customer}-${record.customer_number}`} className="border-b border-slate-100">
+                    <td className="py-2 pr-2">{record.customer_number || '-'}</td>
                     <td className="py-2 pr-2">{record.customer}</td>
                     <td className="py-2 pr-2">{record.sale_count}</td>
                     <td className="py-2 pr-2">{formatCurrency(record.total_sales)}</td>
                     <td className="py-2 pr-2">{record.latest_sale_date ?? '-'}</td>
+                    <td className="py-2 pr-2">
+                      {record.customer_id ? (
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            to={ADMIN_ROUTES.customer(record.customer_id)}
+                            className="text-[11px] font-medium text-apex-primary hover:underline"
+                          >
+                            Profile
+                          </Link>
+                          <button
+                            type="button"
+                            className="text-[11px] font-medium text-slate-600 hover:underline"
+                            onClick={() =>
+                              setSelectedCustomerId(
+                                selectedCustomerId === record.customer_id ? null : record.customer_id,
+                              )
+                            }
+                          >
+                            {selectedCustomerId === record.customer_id ? 'Hide' : 'Quick View'}
+                          </button>
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {selectedCustomerId && (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-white/80 p-3">
+              <h4 className="text-xs font-semibold text-slate-800">Purchase History</h4>
+              <div className="mt-2 overflow-x-auto">
+                <table className="min-w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500">
+                      <th className="py-2 pr-2">Sale #</th>
+                      <th className="py-2 pr-2">Invoice</th>
+                      <th className="py-2 pr-2">Product</th>
+                      <th className="py-2 pr-2">Total</th>
+                      <th className="py-2 pr-2">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(purchaseHistoryQuery.data?.results ?? []).map((sale) => (
+                      <tr key={sale.id} className="border-b border-slate-100">
+                        <td className="py-2 pr-2">{sale.sale_number}</td>
+                        <td className="py-2 pr-2">{sale.invoice_number}</td>
+                        <td className="py-2 pr-2">{sale.product_name}</td>
+                        <td className="py-2 pr-2">{formatCurrency(sale.total)}</td>
+                        <td className="py-2 pr-2">{sale.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </section>
       )}
+
+      <InvoiceEmailModal
+        open={emailTarget !== null}
+        invoiceNumber={emailTarget?.invoiceNumber}
+        customerName={emailTarget?.customerName}
+        defaultEmail={emailTarget?.customerEmail ?? ''}
+        isSending={emailMutation.isPending}
+        onClose={() => setEmailTarget(null)}
+        onSend={(emails) => {
+          if (!emailTarget) return;
+          emailMutation.mutate({ invoiceId: emailTarget.id, email: emails || undefined });
+        }}
+      />
     </div>
   );
 }

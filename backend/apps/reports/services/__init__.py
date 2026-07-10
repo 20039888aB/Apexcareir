@@ -12,6 +12,12 @@ from reportlab.pdfgen import canvas
 from apps.finance.models import Expense, Payroll
 from apps.inventory.models import Product, StockReceipt
 from apps.sales.models import Sale
+from apps.common.services.company_branding import (
+    branding_header_rows,
+    draw_branded_pdf_header,
+    get_company_branding,
+    write_branded_xlsx_header,
+)
 
 REPORT_TYPES = {"sales", "inventory", "profit", "expenses", "performance"}
 
@@ -310,6 +316,8 @@ def export_as_csv(payload):
     response["Content-Disposition"] = f'attachment; filename="{payload["filename"]}.csv"'
 
     writer = csv.writer(response)
+    for row in branding_header_rows():
+        writer.writerow(row)
     writer.writerow([payload["title"]])
     writer.writerow([])
     writer.writerow(["Summary"])
@@ -327,15 +335,23 @@ def export_as_xlsx(payload):
     worksheet = workbook.active
     worksheet.title = "Report"
 
-    worksheet.append([payload["title"]])
-    worksheet.append([])
-    worksheet.append(["Summary"])
+    next_row = write_branded_xlsx_header(worksheet, start_row=1)
+    worksheet.cell(row=next_row, column=1, value=payload["title"])
+    next_row += 2
+    worksheet.cell(row=next_row, column=1, value="Summary")
+    next_row += 1
     for key, value in payload["summary"].items():
-        worksheet.append([key, value])
-    worksheet.append([])
-    worksheet.append([column["label"] for column in payload["columns"]])
+        worksheet.cell(row=next_row, column=1, value=key)
+        worksheet.cell(row=next_row, column=2, value=value)
+        next_row += 1
+    next_row += 1
+    for column_index, column in enumerate(payload["columns"], start=1):
+        worksheet.cell(row=next_row, column=column_index, value=column["label"])
+    next_row += 1
     for row in payload["results"]:
-        worksheet.append([row.get(column["key"], "") for column in payload["columns"]])
+        for column_index, column in enumerate(payload["columns"], start=1):
+            worksheet.cell(row=next_row, column=column_index, value=row.get(column["key"], ""))
+        next_row += 1
 
     output = io.BytesIO()
     workbook.save(output)
@@ -354,6 +370,7 @@ def export_as_pdf(payload):
     pdf = canvas.Canvas(output, pagesize=A4)
     _, height = A4
     y = height - 40
+    y = draw_branded_pdf_header(pdf, height, y)
 
     pdf.setFont("Helvetica-Bold", 14)
     pdf.drawString(40, y, payload["title"])
@@ -378,6 +395,7 @@ def export_as_pdf(payload):
     y -= 14
     pdf.setFont("Helvetica", 8)
 
+    branding = get_company_branding()
     for row in payload["results"]:
         row_text = " | ".join(str(row.get(column["key"], "")) for column in payload["columns"])
         pdf.drawString(40, y, row_text[:150])
@@ -386,7 +404,10 @@ def export_as_pdf(payload):
             pdf.showPage()
             y = height - 40
             pdf.setFont("Helvetica", 8)
+            y = draw_branded_pdf_header(pdf, height, y)
 
+    pdf.setFont("Helvetica", 7)
+    pdf.drawString(40, 30, f"{branding['company_name']} · Generated report")
     pdf.save()
     output.seek(0)
     response = HttpResponse(output.getvalue(), content_type="application/pdf")

@@ -1,0 +1,36 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  #header {
+    background: linear-gradient(90deg, #1b4d3e, #6e2c3e);
+  }
+  .admin-branding {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .admin-branding img {
+    height: 34px;
+    width: 34px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    background: #fff;
+  }
+  .admin-branding span {
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+  }
+</style>
+{% endblock %}
+
+{% block branding %}
+<div class="admin-branding">
+  <img src="{% static 'branding/logo.jpeg' %}" alt="Apexcareir logo" />
+  <span>Apex Care IR Administration</span>
+</div>
+{% endblock %}

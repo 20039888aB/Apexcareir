@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { Link, useSearchParams } from 'react-router-dom';
+import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import { resetPassword, type ResetPasswordInput } from '../../services';
 import { z } from 'zod';
 
@@ -96,7 +97,7 @@ export default function ResetPasswordPage() {
           </p>
         )}
 
-        <Link to="/apexcareir-main/login" className="mt-4 inline-block text-xs text-apex-primary hover:underline">
+        <Link to={ADMIN_ROUTES.login} className="mt-4 inline-block text-xs text-apex-primary hover:underline">
           Back to sign in
         </Link>
       </div>
