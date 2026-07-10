@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+  }
+  *:focus-visible {
+    outline: 2px solid rgba(184, 149, 47, 0.85);
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  .section-sky {
+    @apply py-20 md:py-28;
+    background: linear-gradient(180deg, rgba(232, 244, 248, 0.7) 0%, rgba(248, 246, 242, 0.9) 100%);
+  }
+  .section-white {
+    @apply bg-white py-20 md:py-28;
+  }
+  .section-cream {
+    @apply py-20 md:py-28;
+    background-color: #F8F6F2;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300;
+    background-color: #1B4D3E;
+  }
+  .btn-primary:hover {
+    background-color: #2A6B55;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(27, 77, 62, 0.3);
+  }
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3 text-sm font-semibold shadow-lg transition-all duration-300;
+    background-color: #B8952F;
+    color: #1A1A1A;
+  }
+  .btn-gold:hover {
+    background-color: #D4B44A;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(184, 149, 47, 0.35);
+  }
+  .btn-burgundy {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-300;
+    background-color: #6E2C3E;
+  }
+  .btn-burgundy:hover {
+    background-color: #8B3A50;
+    transform: translateY(-2px);
+  }
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border-2 bg-white/80 px-7 py-3 text-sm font-semibold transition-all duration-300;
+    border-color: rgba(27, 77, 62, 0.25);
+    color: #1B4D3E;
+  }
+  .btn-outline:hover {
+    border-color: #B8952F;
+    color: #967820;
+    background-color: rgba(255, 255, 255, 0.95);
+  }
+  .btn-primary:hover,
+  .btn-gold:hover,
+  .btn-burgundy:hover,
+  .btn-outline:hover {
+    filter: saturate(1.03);
+  }
+  .card {
+    @apply rounded-2xl border bg-white/90 p-6 shadow-sm transition-all duration-300 backdrop-blur-sm;
+    border-color: rgba(184, 149, 47, 0.15);
+  }
+  .card:hover {
+    border-color: rgba(184, 149, 47, 0.35);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(27, 77, 62, 0.1);
+  }
+  .glass-card {
+    @apply rounded-3xl border shadow-glass backdrop-blur-xl;
+    background: rgba(255, 255, 255, 0.55);
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+  .modern-ir-card {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(184, 149, 47, 0.24);
+    box-shadow: 0 12px 30px rgba(18, 43, 64, 0.08);
+  }
+  .modern-ir-card::before {
+    content: '';
+    position: absolute;
+    inset: -40% 35% auto auto;
+    width: 220px;
+    height: 220px;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(184, 149, 47, 0.22), transparent 70%);
+    pointer-events: none;
+    opacity: 0.75;
+    transition: transform 0.45s ease, opacity 0.45s ease;
+    transform: translate3d(0, 0, 0);
+  }
+  .modern-ir-card:hover::before {
+    transform: translate3d(-18px, 14px, 0);
+    opacity: 1;
+  }
+  .ir-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide backdrop-blur-sm;
+    border-color: rgba(184, 149, 47, 0.3);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.26));
+    color: #6e2c3e;
+  }
+  .section-heading {
+    @apply font-display text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight;
+    color: #1B4D3E;
+  }
+  .gold-line {
+    @apply h-1 w-16 rounded-full;
+    background: linear-gradient(to right, #B8952F, #D4B44A);
+  }
+  .text-brand-forest {
+    color: #1B4D3E;
+  }
+  .text-brand-burgundy {
+    color: #6E2C3E;
+  }
+}
