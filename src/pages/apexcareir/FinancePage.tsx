@@ -3,6 +3,7 @@ import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, X
 import { useState } from 'react';
 import { createExpense, createPayroll, deleteExpense, deletePayroll, getFinanceSummary, listExpenses, listPayroll } from '../../services';
 import { useAuth } from '../../hooks';
+import { useServerClock } from '../../hooks/useServerClock';
 import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
 import { BUSINESS_AREAS, EXPENSE_TYPES, businessAreaLabel, expenseTypeLabel } from '../../data/expenseTypes';
 
@@ -21,6 +22,7 @@ function formatCurrency(value: string | number) {
 export default function FinancePage() {
   const queryClient = useQueryClient();
   const { hasPermission, isSuperAdmin } = useAuth();
+  const { localDate } = useServerClock();
   const [activeTab, setActiveTab] = useState<FinanceTab>('business-expenses');
   const [expenseSearch, setExpenseSearch] = useState('');
   const [expenseTypeFilter, setExpenseTypeFilter] = useState('');
@@ -93,7 +95,7 @@ export default function FinancePage() {
       amount: Number(formData.get('amount') || 0),
       description: String(formData.get('description') || '').trim(),
       payment_method: String(formData.get('payment_method') || 'cash') as 'cash' | 'bank' | 'mobile' | 'card',
-      date: String(formData.get('date') || new Date().toISOString().slice(0, 10)),
+      date: String(formData.get('date') || localDate),
     });
     event.currentTarget.reset();
   };
@@ -106,7 +108,7 @@ export default function FinancePage() {
       salary: Number(formData.get('salary') || 0),
       allowances: Number(formData.get('allowances') || 0),
       deductions: Number(formData.get('deductions') || 0),
-      payment_date: String(formData.get('payment_date') || new Date().toISOString().slice(0, 10)),
+      payment_date: String(formData.get('payment_date') || localDate),
       notes: String(formData.get('notes') || '').trim(),
     });
     event.currentTarget.reset();
@@ -179,7 +181,7 @@ export default function FinancePage() {
                 <option value="card">Card</option>
               </select>
               <label className="text-xs font-semibold text-slate-700">Expense Date</label>
-              <input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              <input name="date" type="date" defaultValue={localDate} key={`expense-date-${localDate}`} />
               <label className="text-xs font-semibold text-slate-700">Description</label>
               <textarea name="description" placeholder="Notes for record keeping and reports" />
               <button disabled={createExpenseMutation.isPending}>
@@ -276,7 +278,7 @@ export default function FinancePage() {
               <label className="text-xs font-semibold text-slate-700">Deductions</label>
               <input name="deductions" type="number" min="0" step="0.01" defaultValue="0" placeholder="Deductions" />
               <label className="text-xs font-semibold text-slate-700">Payment Date</label>
-              <input name="payment_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              <input name="payment_date" type="date" defaultValue={localDate} key={`payroll-date-${localDate}`} />
               <label className="text-xs font-semibold text-slate-700">Notes</label>
               <textarea name="notes" placeholder="Notes" />
               <button disabled={createPayrollMutation.isPending}>

@@ -22,6 +22,19 @@ from apps.common.services.company_branding import (
 REPORT_TYPES = {"sales", "inventory", "profit", "expenses", "performance"}
 
 
+def _period_meta_rows(payload):
+    rows = []
+    if payload.get("period_label"):
+        rows.append(["Period", payload["period_label"]])
+    if payload.get("start_date"):
+        rows.append(["Start Date", payload["start_date"]])
+    if payload.get("end_date"):
+        rows.append(["End Date", payload["end_date"]])
+    if payload.get("generated_at"):
+        rows.append(["Generated At", payload["generated_at"]])
+    return rows
+
+
 def _to_float(value):
     if value is None:
         return 0.0
@@ -319,6 +332,8 @@ def export_as_csv(payload):
     for row in branding_header_rows():
         writer.writerow(row)
     writer.writerow([payload["title"]])
+    for row in _period_meta_rows(payload):
+        writer.writerow(row)
     writer.writerow([])
     writer.writerow(["Summary"])
     for key, value in payload["summary"].items():
@@ -337,7 +352,12 @@ def export_as_xlsx(payload):
 
     next_row = write_branded_xlsx_header(worksheet, start_row=1)
     worksheet.cell(row=next_row, column=1, value=payload["title"])
-    next_row += 2
+    next_row += 1
+    for row in _period_meta_rows(payload):
+        worksheet.cell(row=next_row, column=1, value=row[0])
+        worksheet.cell(row=next_row, column=2, value=row[1])
+        next_row += 1
+    next_row += 1
     worksheet.cell(row=next_row, column=1, value="Summary")
     next_row += 1
     for key, value in payload["summary"].items():
@@ -374,7 +394,12 @@ def export_as_pdf(payload):
 
     pdf.setFont("Helvetica-Bold", 14)
     pdf.drawString(40, y, payload["title"])
-    y -= 24
+    y -= 20
+    pdf.setFont("Helvetica", 9)
+    for row in _period_meta_rows(payload):
+        pdf.drawString(40, y, f"{row[0]}: {row[1]}")
+        y -= 14
+    y -= 10
 
     pdf.setFont("Helvetica-Bold", 10)
     pdf.drawString(40, y, "Summary")

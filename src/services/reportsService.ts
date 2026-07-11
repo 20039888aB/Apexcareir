@@ -8,6 +8,8 @@ export type ReportResponse = {
   filename: string;
   start_date: string;
   end_date: string;
+  period_label?: string;
+  generated_at?: string;
   summary: Record<string, number>;
   columns: Array<{ key: string; label: string }>;
   results: Array<Record<string, string | number | boolean | null>>;
@@ -16,6 +18,8 @@ export type ReportResponse = {
 type ReportFilters = {
   start_date?: string;
   end_date?: string;
+  month?: string;
+  date?: string;
   search?: string;
 };
 
@@ -28,6 +32,8 @@ export async function getReport(reportType: ReportType, filters: ReportFilters =
     params: {
       start_date: filters.start_date || undefined,
       end_date: filters.end_date || undefined,
+      month: filters.month || undefined,
+      date: filters.date || undefined,
       search: filters.search || undefined,
     },
   });
@@ -40,6 +46,8 @@ export async function exportReport(reportType: ReportType, exportType: ExportTyp
       export: exportType,
       start_date: filters.start_date || undefined,
       end_date: filters.end_date || undefined,
+      month: filters.month || undefined,
+      date: filters.date || undefined,
       search: filters.search || undefined,
     },
     responseType: 'blob',

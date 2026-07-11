@@ -13,6 +13,7 @@ from .services.invoice_service import (
     update_invoice_record,
 )
 from .services.payment_service import record_invoice_payment
+from .services.product_lookup import upsert_product_for_sale
 
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -315,6 +316,7 @@ class InvoicePaymentWriteSerializer(serializers.Serializer):
 
 
 class SaleSerializer(serializers.ModelSerializer):
+    new_product_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     product_name = serializers.CharField(source="product.name", read_only=True)
     product_sku = serializers.CharField(source="product.sku", read_only=True)
     salesperson_email = serializers.CharField(source="salesperson.email", read_only=True)
@@ -329,6 +331,9 @@ class SaleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Sale
+        extra_kwargs = {
+            "product": {"required": False, "allow_null": True},
+        }
         fields = [
             "id",
             "sale_number",
@@ -344,6 +349,7 @@ class SaleSerializer(serializers.ModelSerializer):
             "customer_company",
             "customer_logo",
             "product",
+            "new_product_name",
             "product_name",
             "product_sku",
             "quantity",
@@ -374,15 +380,36 @@ class SaleSerializer(serializers.ModelSerializer):
             "salesperson",
         ]
 
+    def validate(self, attrs):
+        product = attrs.get("product")
+        new_product_name = (attrs.pop("new_product_name", "") or "").strip()
+        if not product and not new_product_name:
+            raise serializers.ValidationError(
+                {"product": "Select an existing product or type a new product name."}
+            )
+        if not product and new_product_name:
+            attrs["_new_product_name"] = new_product_name
+        return attrs
+
     def create(self, validated_data):
         customer_phone = validated_data.pop("customer_phone", "")
         customer_email = validated_data.pop("customer_email", "")
         customer_address = validated_data.pop("customer_address", "")
         customer_company = validated_data.pop("customer_company", "")
         customer_logo = validated_data.pop("customer_logo", None)
+        new_product_name = validated_data.pop("_new_product_name", None)
 
         request = self.context.get("request")
         user = request.user if request and request.user.is_authenticated else None
+
+        if new_product_name and not validated_data.get("product"):
+            validated_data["product"] = upsert_product_for_sale(
+                name=new_product_name,
+                unit_price=validated_data["price"],
+                cost_price=validated_data["cost_price"],
+                quantity=validated_data["quantity"],
+                user=user,
+            )
 
         customer_record = get_or_create_customer(
             name=validated_data["customer"],

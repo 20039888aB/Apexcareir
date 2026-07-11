@@ -55,6 +55,37 @@ class SalesAPITests(APITestCase):
         self.assertTrue(response.data["invoice_number"].startswith("INV-"))
         self.assertIsNotNone(response.data["invoice_id"])
 
+    def test_sale_creation_with_new_product_name_auto_saves_product(self):
+        payload = {
+            "customer": "Hospital Buyer",
+            "new_product_name": "Portable Oxygen Mask",
+            "quantity": 4,
+            "price": "2500.00",
+            "discount": "0.00",
+            "tax": "0.00",
+            "cost_price": "1800.00",
+            "date": timezone.localdate().isoformat(),
+        }
+        response = self.client.post("/api/v1/sales/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["product_name"], "Portable Oxygen Mask")
+
+        created_product = Product.objects.get(name="Portable Oxygen Mask")
+        self.assertEqual(created_product.current_stock, 0)
+        self.assertEqual(Decimal(str(created_product.selling_price)), Decimal("2500.00"))
+
+        repeat_response = self.client.post(
+            "/api/v1/sales/",
+            {
+                **payload,
+                "customer": "Repeat Buyer",
+                "quantity": 2,
+            },
+            format="json",
+        )
+        self.assertEqual(repeat_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Product.objects.filter(name="Portable Oxygen Mask").count(), 1)
+
     def test_sale_creation_auto_generates_invoice_pdf_record(self):
         payload = {
             "customer": "Invoice Customer",

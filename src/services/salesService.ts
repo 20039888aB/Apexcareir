@@ -83,7 +83,8 @@ export async function createSale(payload: {
   customer_email?: string;
   customer_address?: string;
   customer_company?: string;
-  product: number;
+  product?: number;
+  new_product_name?: string;
   quantity: number;
   price: number;
   discount?: number;

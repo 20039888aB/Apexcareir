@@ -48,7 +48,7 @@ export {
   type InvoicePaymentStatus,
   type InvoiceStatus,
 } from './invoiceService';
-export { getTransactionTimeline, type TransactionEvent } from './timelineService';
+export { getSystemClock, type SystemClock } from './serverClockService';
 export {
   archiveProduct,
   createBulkStockReceipt,

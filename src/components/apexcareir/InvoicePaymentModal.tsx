@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useServerClock } from '../../hooks/useServerClock';
 
 type InvoicePaymentModalProps = {
   open: boolean;
@@ -17,8 +18,9 @@ export default function InvoicePaymentModal({
   onClose,
   onSave,
 }: InvoicePaymentModalProps) {
+  const { localDate } = useServerClock();
   const [amount, setAmount] = useState('');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
@@ -26,12 +28,12 @@ export default function InvoicePaymentModal({
   useEffect(() => {
     if (open) {
       setAmount(balanceDue > 0 ? String(balanceDue) : '');
-      setPaymentDate(new Date().toISOString().slice(0, 10));
+      setPaymentDate(localDate);
       setPaymentMethod('cash');
       setReference('');
       setNotes('');
     }
-  }, [open, balanceDue]);
+  }, [open, balanceDue, localDate]);
 
   if (!open) return null;
 

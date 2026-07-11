@@ -1,19 +1,57 @@
-node_modules
-dist
-.DS_Store
-*.local
-.vite
+# Dependencies
+node_modules/
+backend/.venv/
+.venv/
+
+# Build output
+dist/
+.vite/
+tsconfig.tsbuildinfo
+
+# Environment & secrets (never commit real credentials)
 .env
+.env.*
+!.env.example
 backend/.env
-.venv
-backend/.venv
+backend/.env.*
+!backend/.env.example
+
+# Django user uploads & generated business files
+backend/media/
+
+# Django / Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
+.Python
+backend/staticfiles/
 *.sqlite3
+*.db
+
+# Test & tooling caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
 htmlcov/
-tsconfig.tsbuildinfo
+.tox/
+
+# Logs & dumps
+*.log
+logs/
+*.sql
+*.dump
+*.bak
+
+# OS & editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local overrides
+*.local

@@ -1,8 +1,15 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CompanyBrandingHeader from '../../components/apexcareir/CompanyBrandingHeader';
 import { EmptyState, PageErrorState, PageSkeleton } from '../../components/apexcareir/PageStates';
+import {
+  lastDayOfMonth,
+  previousMonthValue,
+  shiftIsoDate,
+  useServerClock,
+} from '../../hooks/useServerClock';
 import { exportReport, getReport, type ExportType, type ReportType } from '../../services';
+import { formatDateTime, formatIsoDate, formatMonthValue } from '../../utils/formatDate';
 
 const reportTypes: Array<{ id: ReportType; label: string; description: string }> = [
   { id: 'sales', label: 'Sales Report', description: 'Revenue, invoice, customer, and salesperson performance.' },
@@ -12,9 +19,21 @@ const reportTypes: Array<{ id: ReportType; label: string; description: string }>
   { id: 'performance', label: 'Business Performance', description: 'Monthly business performance with revenue/expense/payroll net.' },
 ];
 
-function formatCellValue(value: unknown) {
+type ReportPeriodMode = 'month' | 'single_date' | 'custom';
+
+const periodPresets = [
+  { id: 'today', label: 'Today' },
+  { id: 'this_month', label: 'This Month' },
+  { id: 'last_month', label: 'Last Month' },
+  { id: 'last_30_days', label: 'Last 30 Days' },
+] as const;
+
+function formatCellValue(key: string, value: unknown) {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (value === null || value === undefined || value === '') return '-';
+  if (key === 'date' || key === 'payment_date' || key === 'date_received') {
+    return formatIsoDate(String(value));
+  }
   if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2);
   return String(value);
 }
@@ -26,42 +45,95 @@ function formatSummaryKey(key: string) {
 }
 
 export default function ReportsPage() {
-  const [activeReport, setActiveReport] = useState<ReportType>('sales');
-  const [startDate, setStartDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return date.toISOString().slice(0, 10);
-  });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const { localDate, monthValue, monthStart, monthEnd } = useServerClock();
+  const [periodMode, setPeriodMode] = useState<ReportPeriodMode>('month');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [singleDate, setSingleDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
+  const [activeReport, setActiveReport] = useState<ReportType>('sales');
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!localDate || initialized) {
+      return;
+    }
+    setSelectedMonth(monthValue);
+    setSingleDate(localDate);
+    setStartDate(monthStart);
+    setEndDate(localDate);
+    setInitialized(true);
+  }, [initialized, localDate, monthEnd, monthStart, monthValue]);
+
+  const reportFilters = useMemo(() => {
+    if (periodMode === 'month') {
+      return { month: selectedMonth || undefined, search: search || undefined };
+    }
+    if (periodMode === 'single_date') {
+      return { date: singleDate || undefined, search: search || undefined };
+    }
+    return {
+      start_date: startDate || undefined,
+      end_date: endDate || undefined,
+      search: search || undefined,
+    };
+  }, [endDate, periodMode, search, selectedMonth, singleDate, startDate]);
 
   const reportQuery = useQuery({
-    queryKey: ['reports', activeReport, startDate, endDate, search],
-    queryFn: () =>
-      getReport(activeReport, {
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
-        search: search || undefined,
-      }),
+    queryKey: ['reports', activeReport, periodMode, selectedMonth, singleDate, startDate, endDate, search],
+    queryFn: () => getReport(activeReport, reportFilters),
+    enabled: initialized,
   });
 
   const exportMutation = useMutation({
-    mutationFn: (exportType: ExportType) =>
-      exportReport(activeReport, exportType, {
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
-        search: search || undefined,
-      }),
+    mutationFn: (exportType: ExportType) => exportReport(activeReport, exportType, reportFilters),
   });
 
   const activeReportMeta = useMemo(() => reportTypes.find((report) => report.id === activeReport), [activeReport]);
+
+  const selectedPeriodLabel = useMemo(() => {
+    if (periodMode === 'month') {
+      return selectedMonth ? formatMonthValue(selectedMonth) : 'Select a month';
+    }
+    if (periodMode === 'single_date') {
+      return singleDate ? formatIsoDate(singleDate) : 'Select a date';
+    }
+    if (startDate && endDate) {
+      return `${formatIsoDate(startDate)} – ${formatIsoDate(endDate)}`;
+    }
+    return 'Select a date range';
+  }, [endDate, periodMode, selectedMonth, singleDate, startDate]);
+
+  const applyPreset = (preset: (typeof periodPresets)[number]['id']) => {
+    if (preset === 'today') {
+      setPeriodMode('single_date');
+      setSingleDate(localDate);
+      return;
+    }
+    if (preset === 'this_month') {
+      setPeriodMode('month');
+      setSelectedMonth(monthValue);
+      return;
+    }
+    if (preset === 'last_month') {
+      const previousMonth = previousMonthValue(monthValue);
+      setPeriodMode('custom');
+      setStartDate(`${previousMonth}-01`);
+      setEndDate(lastDayOfMonth(previousMonth));
+      return;
+    }
+    setPeriodMode('custom');
+    setStartDate(shiftIsoDate(localDate, -30));
+    setEndDate(localDate);
+  };
 
   return (
     <div className="apexcareir-ui space-y-4">
       <section className="apex-glass-panel p-4">
         <CompanyBrandingHeader
           title="Reports & Analytics"
-          subtitle="Generate and export business reports with date-range and search filters."
+          subtitle="Generate reports by month, single date, or custom range using the system clock."
         />
       </section>
 
@@ -81,15 +153,74 @@ export default function ReportsPage() {
       </section>
 
       <section className="apex-glass-panel p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[rgba(184,149,47,0.2)] bg-white/85 px-3 py-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Report Period</p>
+            <p className="text-sm font-semibold text-slate-900">{selectedPeriodLabel}</p>
+          </div>
+          <div className="text-right text-[11px] text-slate-500">
+            <p>System date: {formatIsoDate(localDate)}</p>
+            {reportQuery.data?.generated_at && <p>Generated: {formatDateTime(reportQuery.data.generated_at)}</p>}
+          </div>
+        </div>
+
+        <div className="mb-3 flex flex-wrap gap-2">
+          {periodPresets.map((preset) => (
+            <button key={preset.id} className="apex-btn-soft text-xs" onClick={() => applyPreset(preset.id)}>
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button
+            className={`apex-tab ${periodMode === 'month' ? 'apex-tab-active' : 'apex-tab-idle'}`}
+            onClick={() => setPeriodMode('month')}
+          >
+            By Month
+          </button>
+          <button
+            className={`apex-tab ${periodMode === 'single_date' ? 'apex-tab-active' : 'apex-tab-idle'}`}
+            onClick={() => setPeriodMode('single_date')}
+          >
+            By Date
+          </button>
+          <button
+            className={`apex-tab ${periodMode === 'custom' ? 'apex-tab-active' : 'apex-tab-idle'}`}
+            onClick={() => setPeriodMode('custom')}
+          >
+            Custom Range
+          </button>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">Start Date</label>
-            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">End Date</label>
-            <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-          </div>
+          {periodMode === 'month' && (
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-700">Report Month</label>
+              <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} />
+            </div>
+          )}
+
+          {periodMode === 'single_date' && (
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-700">Report Date</label>
+              <input type="date" value={singleDate} onChange={(event) => setSingleDate(event.target.value)} />
+            </div>
+          )}
+
+          {periodMode === 'custom' && (
+            <>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Start Date</label>
+                <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">End Date</label>
+                <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+              </div>
+            </>
+          )}
+
           <div className="sm:col-span-2">
             <label className="mb-1 block text-xs font-semibold text-slate-700">Search</label>
             <input
@@ -121,12 +252,17 @@ export default function ReportsPage() {
       {reportQuery.data && (
         <>
           <section className="apex-glass-panel p-4">
-            <h3 className="mb-3 text-sm font-semibold text-slate-800">Summary</h3>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-slate-800">Summary</h3>
+              <p className="text-xs text-slate-500">
+                {reportQuery.data.period_label || `${formatIsoDate(reportQuery.data.start_date)} to ${formatIsoDate(reportQuery.data.end_date)}`}
+              </p>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {Object.entries(reportQuery.data.summary).map(([key, value]) => (
                 <div key={key} className="rounded-lg border border-slate-200 bg-white/85 p-3">
                   <p className="text-[11px] text-slate-500">{formatSummaryKey(key)}</p>
-                  <p className="text-sm font-semibold text-slate-900">{formatCellValue(value)}</p>
+                  <p className="text-sm font-semibold text-slate-900">{formatCellValue(key, value)}</p>
                 </div>
               ))}
             </div>
@@ -153,7 +289,7 @@ export default function ReportsPage() {
                       <tr key={`${row[reportQuery.data.columns[0]?.key] ?? 'row'}-${index}`} className="border-b border-slate-100">
                         {reportQuery.data.columns.map((column) => (
                           <td key={column.key} className="py-2 pr-3">
-                            {formatCellValue(row[column.key])}
+                            {formatCellValue(column.key, row[column.key])}
                           </td>
                         ))}
                       </tr>

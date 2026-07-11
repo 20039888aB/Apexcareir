@@ -5,6 +5,8 @@ import InvoiceEmailModal from '../../components/apexcareir/InvoiceEmailModal';
 import InvoicePaymentModal from '../../components/apexcareir/InvoicePaymentModal';
 import InvoiceLineEditor, { calculateLinesTotal, createInitialInvoiceLines, type InvoiceLineForm } from '../../components/apexcareir/InvoiceLineEditor';
 import BuyerPicker from '../../components/apexcareir/BuyerPicker';
+import { useServerClock } from '../../hooks/useServerClock';
+import { formatDateTime, formatIsoDate } from '../../utils/formatDate';
 import {
   createInvoice,
   downloadInvoicePdf,
@@ -38,7 +40,7 @@ const emptyForm = {
   cost_price: '',
   discount: '0',
   tax: '0',
-  invoice_date: new Date().toISOString().slice(0, 10),
+  invoice_date: '',
   status: 'draft' as InvoiceStatus,
   payment_status: 'unpaid' as InvoicePaymentStatus,
   notes: '',
@@ -90,8 +92,11 @@ function invoiceToForm(invoice: Invoice) {
 
 export default function InvoicesPage() {
   const queryClient = useQueryClient();
+  const { localDate, monthStart } = useServerClock();
   const [activeTab, setActiveTab] = useState<InvoicesTab>('list');
   const [search, setSearch] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | ''>('');
   const [paymentFilter, setPaymentFilter] = useState<InvoicePaymentStatus | ''>('');
   const [selectedReference, setSelectedReference] = useState<string | null>(null);
@@ -110,13 +115,24 @@ export default function InvoicesPage() {
     customerEmail: string;
   } | null>(null);
 
+  useEffect(() => {
+    if (!localDate) {
+      return;
+    }
+    setForm((previous) => (previous.invoice_date ? previous : { ...previous, invoice_date: localDate }));
+    setStartDateFilter((previous) => previous || monthStart);
+    setEndDateFilter((previous) => previous || localDate);
+  }, [localDate, monthStart]);
+
   const invoicesQuery = useQuery({
-    queryKey: ['invoices', search, statusFilter, paymentFilter],
+    queryKey: ['invoices', search, statusFilter, paymentFilter, startDateFilter, endDateFilter],
     queryFn: () =>
       listInvoices({
         search: search || undefined,
         status: statusFilter || undefined,
         payment_status: paymentFilter || undefined,
+        start_date: startDateFilter || undefined,
+        end_date: endDateFilter || undefined,
       }),
   });
 
@@ -178,7 +194,7 @@ export default function InvoicesPage() {
     mutationFn: (payload: InvoiceInput) => createInvoice(payload),
     onSuccess: async (invoice) => {
       setActionMessage(`Invoice ${invoice.invoice_number} created. Buyer "${invoice.customer_name}" saved for future use.`);
-      setForm(emptyForm);
+      setForm({ ...emptyForm, invoice_date: localDate });
       setSelectedBuyerId('');
       setCustomerLogoFile(null);
       setActiveTab('list');
@@ -333,6 +349,20 @@ export default function InvoicesPage() {
 
   const renderInvoiceForm = (mode: 'create' | 'edit') => (
     <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={mode === 'create' ? handleCreateSubmit : handleEditSubmit}>
+      <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[rgba(184,149,47,0.2)] bg-white/85 px-3 py-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Invoice Date</p>
+          <p className="text-sm font-semibold text-slate-900">{formatIsoDate(form.invoice_date)}</p>
+        </div>
+        {mode === 'edit' && editingInvoice && (
+          <div className="text-right text-[11px] text-slate-500">
+            {editingInvoice.issued_at && <p>Issued: {formatDateTime(editingInvoice.issued_at)}</p>}
+            {editingInvoice.paid_at && <p>Paid: {formatDateTime(editingInvoice.paid_at)}</p>}
+            {editingInvoice.pdf_generated_at && <p>PDF: {formatDateTime(editingInvoice.pdf_generated_at)}</p>}
+          </div>
+        )}
+      </div>
+
       <BuyerPicker
         customers={customersQuery.data ?? []}
         value={selectedBuyerId}
@@ -594,7 +624,7 @@ export default function InvoicesPage() {
               onClick={() => {
                 if (tab.id === 'create') {
                   setEditingInvoice(null);
-                  setForm(emptyForm);
+                  setForm({ ...emptyForm, invoice_date: localDate });
                   setInvoiceLines(createInitialInvoiceLines());
                   setSelectedBuyerId('');
                   setSelectedBuyerLogoUrl(null);
@@ -642,12 +672,20 @@ export default function InvoicesPage() {
           <h2 className="text-sm font-semibold text-slate-800">Invoice Management</h2>
           <p className="mt-1 text-xs text-slate-600">Search, download, email, edit, and track professional invoices.</p>
 
-          <div className="mt-3 grid gap-2 md:grid-cols-3">
+          <div className="mt-3 grid gap-2 md:grid-cols-5">
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search invoice, sale, customer..."
             />
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-600">From Date</label>
+              <input type="date" value={startDateFilter} onChange={(event) => setStartDateFilter(event.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-600">To Date</label>
+              <input type="date" value={endDateFilter} onChange={(event) => setEndDateFilter(event.target.value)} />
+            </div>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as InvoiceStatus | '')}>
               <option value="">All statuses</option>
               <option value="draft">Draft</option>
@@ -667,11 +705,19 @@ export default function InvoicesPage() {
             </select>
           </div>
 
+          {(startDateFilter || endDateFilter) && (
+            <p className="mt-2 text-xs text-slate-500">
+              Showing invoices from <span className="font-medium text-slate-700">{formatIsoDate(startDateFilter)}</span> to{' '}
+              <span className="font-medium text-slate-700">{formatIsoDate(endDateFilter)}</span>
+            </p>
+          )}
+
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
                   <th className="py-2 pr-2">Invoice</th>
+                  <th className="py-2 pr-2">Date</th>
                   <th className="py-2 pr-2">Sale</th>
                   <th className="py-2 pr-2">Customer</th>
                   <th className="py-2 pr-2">Product</th>
@@ -679,7 +725,6 @@ export default function InvoicesPage() {
                   <th className="py-2 pr-2">Status</th>
                   <th className="py-2 pr-2">Payment</th>
                   <th className="py-2 pr-2">PDF</th>
-                  <th className="py-2 pr-2">Date</th>
                   <th className="py-2 pr-2">Actions</th>
                 </tr>
               </thead>
@@ -687,6 +732,10 @@ export default function InvoicesPage() {
                 {(invoicesQuery.data ?? []).map((invoice) => (
                   <tr key={invoice.id} className="border-b border-slate-100">
                     <td className="py-2 pr-2 font-medium">{invoice.invoice_number}</td>
+                    <td className="py-2 pr-2">
+                      <p className="font-medium text-slate-800">{formatIsoDate(invoice.invoice_date)}</p>
+                      {invoice.issued_at && <p className="text-[10px] text-slate-500">Issued {formatDateTime(invoice.issued_at)}</p>}
+                    </td>
                     <td className="py-2 pr-2">{invoice.sale_number}</td>
                     <td className="py-2 pr-2">
                       <div className="flex items-center gap-2">
@@ -719,7 +768,6 @@ export default function InvoicesPage() {
                         <span className="text-[10px] text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="py-2 pr-2">{invoice.invoice_date}</td>
                     <td className="py-2 pr-2">
                       <div className="flex flex-wrap gap-1">
                         <button

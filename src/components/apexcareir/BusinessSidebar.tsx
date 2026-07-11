@@ -24,7 +24,7 @@ export default function BusinessSidebar({ groups, navigationMode, onNavigate }: 
   });
 
   return (
-    <nav className="space-y-1 p-3" aria-label="Main navigation">
+    <nav className="apex-sidebar-nav-menu min-w-max space-y-1 p-3" aria-label="Main navigation">
       {groups.map((group) => {
         const expanded = isGroupExpanded(group.id);
         const hasActiveChild = group.children.some((child) => isChildActive(pathname, child.to));

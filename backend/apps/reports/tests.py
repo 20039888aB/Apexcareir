@@ -25,6 +25,20 @@ class ReportsAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("text/csv", response["Content-Type"])
 
+    def test_sales_report_month_filter(self):
+        response = self.client.get("/api/v1/reports/sales/?month=2026-07")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["start_date"], "2026-07-01")
+        self.assertIn("period_label", response.data)
+        self.assertIn("generated_at", response.data)
+
+    def test_sales_report_single_date_filter(self):
+        today = timezone.localdate().isoformat()
+        response = self.client.get(f"/api/v1/reports/sales/?date={today}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["start_date"], today)
+        self.assertEqual(response.data["end_date"], today)
+
     def test_detailed_period_report_html_contains_sections(self):
         from apps.reports.services.detailed_email_report import build_detailed_period_report_html
 

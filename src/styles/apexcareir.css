@@ -169,6 +169,76 @@
   box-shadow: 0 12px 36px rgba(16, 35, 29, 0.08);
 }
 
+.apex-shell-sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  z-index: 50;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.apex-shell-sidebar-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.apex-shell-sidebar-resize-handle:hover::after,
+.apex-shell-sidebar-resize-handle-active::after {
+  background: rgba(184, 149, 47, 0.55);
+}
+
+.apex-shell-sidebar-resizing {
+  transition: none !important;
+}
+
+.apex-shell-sidebar-nav {
+  overflow-x: scroll;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(110, 44, 62, 0.45) rgba(248, 246, 242, 0.9);
+}
+
+.apex-shell-sidebar-nav::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.apex-shell-sidebar-nav::-webkit-scrollbar-track {
+  background: rgba(248, 246, 242, 0.95);
+  border-radius: 999px;
+}
+
+.apex-shell-sidebar-nav::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(184, 149, 47, 0.75), rgba(110, 44, 62, 0.75));
+  border-radius: 999px;
+  border: 2px solid rgba(248, 246, 242, 0.95);
+}
+
+.apex-shell-sidebar-nav::-webkit-scrollbar-corner {
+  background: rgba(248, 246, 242, 0.95);
+}
+
+.apex-sidebar-nav-menu {
+  width: max-content;
+  min-width: 100%;
+}
+
+.apex-nav-group-toggle,
+.apex-nav-sublink {
+  white-space: nowrap;
+}
+
 .apex-shell-header {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(255, 255, 255, 0.9)),
@@ -244,7 +314,9 @@
 }
 
 .apex-nav-children-inner {
-  overflow: hidden;
+  overflow-x: visible;
+  overflow-y: hidden;
+  min-height: 0;
 }
 
 .apex-nav-sublink {

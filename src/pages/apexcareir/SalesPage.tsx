@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
 import BuyerPicker from '../../components/apexcareir/BuyerPicker';
+import ProductPicker from '../../components/apexcareir/ProductPicker';
 import InvoiceEmailModal from '../../components/apexcareir/InvoiceEmailModal';
 import TransactionTimeline from '../../components/apexcareir/TransactionTimeline';
 import { useAuth } from '../../hooks';
+import { useServerClock } from '../../hooks/useServerClock';
 import {
   createSale,
   deleteSale,
@@ -18,6 +20,7 @@ import {
   listProducts,
   listSales,
   type Customer,
+  type Product,
   type Sale,
 } from '../../services';
 
@@ -35,6 +38,7 @@ function formatCurrency(value: string | number) {
 
 export default function SalesPage() {
   const { isSuperAdmin } = useAuth();
+  const { localDate } = useServerClock();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<SalesTab>('entry');
   const [salesSearch, setSalesSearch] = useState('');
@@ -52,20 +56,27 @@ export default function SalesPage() {
   } | null>(null);
   const [selectedBuyerId, setSelectedBuyerId] = useState('');
   const [selectedBuyerLogoUrl, setSelectedBuyerLogoUrl] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [productName, setProductName] = useState('');
   const [entryForm, setEntryForm] = useState({
     customer: '',
     customer_company: '',
     customer_phone: '',
     customer_email: '',
     customer_address: '',
-    product: '',
     quantity: 1,
     price: 0,
     discount: 0,
     tax: 0,
     cost_price: 0,
-    date: new Date().toISOString().slice(0, 10),
+    date: '',
   });
+
+  useEffect(() => {
+    if (localDate) {
+      setEntryForm((previous) => (previous.date ? previous : { ...previous, date: localDate }));
+    }
+  }, [localDate]);
 
   const productsQuery = useQuery({
     queryKey: ['sales', 'entry-products'],
@@ -102,6 +113,8 @@ export default function SalesPage() {
         `Sale ${sale.sale_number} saved. Invoice ${sale.invoice_number} generated. Buyer details stored for future use.`,
       );
       setSelectedBuyerId('');
+      setSelectedProductId('');
+      setProductName('');
       setEntryForm((current) => ({
         ...current,
         customer: '',
@@ -149,7 +162,7 @@ export default function SalesPage() {
     onError: () => setActionMessage('Unable to email invoice. Add a valid recipient email and try again.'),
   });
 
-  const selectedProduct = (productsQuery.data ?? []).find((product) => product.id === Number(entryForm.product));
+  const selectedProduct = (productsQuery.data ?? []).find((product) => product.id === Number(selectedProductId));
   const calculatedTotal = useMemo(
     () => Number(entryForm.quantity) * Number(entryForm.price) - Number(entryForm.discount) + Number(entryForm.tax),
     [entryForm.discount, entryForm.price, entryForm.quantity, entryForm.tax],
@@ -172,9 +185,19 @@ export default function SalesPage() {
     }));
   };
 
+  const applyExistingProduct = (product: Product) => {
+    setSelectedProductId(String(product.id));
+    setProductName(product.name);
+    setEntryForm((current) => ({
+      ...current,
+      price: Number(product.selling_price ?? 0),
+      cost_price: Number(product.purchase_price ?? 0),
+    }));
+  };
+
   const handleEntrySubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!entryForm.customer.trim() || !entryForm.product) return;
+    if (!entryForm.customer.trim() || (!selectedProductId && !productName.trim())) return;
     setActionMessage('');
     createSaleMutation.mutate({
       customer: entryForm.customer.trim(),
@@ -182,7 +205,8 @@ export default function SalesPage() {
       customer_phone: entryForm.customer_phone.trim(),
       customer_email: entryForm.customer_email.trim(),
       customer_address: entryForm.customer_address.trim(),
-      product: Number(entryForm.product),
+      product: selectedProductId ? Number(selectedProductId) : undefined,
+      new_product_name: selectedProductId ? undefined : productName.trim(),
       quantity: Number(entryForm.quantity),
       price: Number(entryForm.price),
       discount: Number(entryForm.discount || 0),
@@ -278,32 +302,15 @@ export default function SalesPage() {
                   placeholder="Physical address"
                 />
               </div>
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-slate-700">Product</label>
-                <select
-                  value={entryForm.product}
-                  onChange={(event) => {
-                    const productId = event.target.value;
-                    const product = (productsQuery.data ?? []).find((item) => item.id === Number(productId));
-                    setEntryForm((current) => ({
-                      ...current,
-                      product: productId,
-                      price: Number(product?.selling_price ?? 0),
-                      cost_price: Number(product?.purchase_price ?? 0),
-                    }));
-                  }}
-                  className="sm:col-span-2"
-                  required
-                >
-                  <option value="">Select product</option>
-                  {(productsQuery.data ?? []).map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.product_number ? `${product.product_number} · ` : ''}
-                      {product.name} ({product.sku}) - Stock: {product.current_stock}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <ProductPicker
+                products={productsQuery.data ?? []}
+                productId={selectedProductId}
+                productName={productName}
+                isLoading={productsQuery.isLoading}
+                onSelect={applyExistingProduct}
+                onNameChange={setProductName}
+                onClear={() => setSelectedProductId('')}
+              />
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-700">Quantity</label>
                 <input

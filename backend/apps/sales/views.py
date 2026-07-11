@@ -14,7 +14,7 @@ from apps.common.services.timeline import log_transaction_event
 from apps.notifications.models import Notification
 from apps.notifications.services import NotificationService
 
-from .filters import SaleFilterSet
+from .filters import InvoiceFilterSet, SaleFilterSet
 from .models import Customer, Invoice, Sale
 from .serializers import (
     CustomerDetailSerializer,
@@ -128,7 +128,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         "sale__product__name",
         "sale__product__sku",
     ]
-    filterset_fields = ["status", "payment_status"]
+    filterset_class = InvoiceFilterSet
     ordering_fields = ["invoice_date", "created_at", "grand_total"]
     http_method_names = ["get", "post", "patch", "head", "options"]
 

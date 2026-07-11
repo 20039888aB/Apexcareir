@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import HasBusinessPermission
+from apps.common.services.datetime_context import resolve_report_date_range
 
 from .services import (
     REPORT_TYPES,
@@ -23,16 +24,27 @@ class ReportAPIView(APIView):
         if report_type not in REPORT_TYPES:
             return Response({"detail": "Invalid report type."}, status=400)
 
-        today = timezone.localdate()
         parsed_start = parse_date(request.query_params.get("start_date") or "")
         parsed_end = parse_date(request.query_params.get("end_date") or "")
-        start_date = parsed_start or today.replace(day=1)
-        end_date = parsed_end or today
+        parsed_on_date = parse_date(request.query_params.get("date") or "")
+        month = (request.query_params.get("month") or "").strip()
         search = (request.query_params.get("search") or "").strip()
+
+        try:
+            start_date, end_date, period_label = resolve_report_date_range(
+                start_date=parsed_start,
+                end_date=parsed_end,
+                month=month or None,
+                on_date=parsed_on_date,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
 
         payload = build_report_payload(report_type, start_date, end_date, search)
         payload["start_date"] = start_date.isoformat()
         payload["end_date"] = end_date.isoformat()
+        payload["period_label"] = period_label
+        payload["generated_at"] = timezone.localtime(timezone.now()).isoformat()
 
         export_kind = (request.query_params.get("export") or "").lower().strip()
         if not export_kind:

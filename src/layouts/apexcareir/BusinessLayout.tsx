@@ -5,9 +5,11 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import BusinessSidebar from '../../components/apexcareir/BusinessSidebar';
 import CompanyBrandingHeader from '../../components/apexcareir/CompanyBrandingHeader';
 import QuickPreferencesPanel from '../../components/apexcareir/QuickPreferencesPanel';
+import SystemClockDisplay from '../../components/apexcareir/SystemClockDisplay';
 import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import { listNotifications, logout, markAllNotificationsRead, markNotificationRead } from '../../services';
 import { useAuthStore } from '../../store';
+import { useResizableSidebar } from '../../hooks/useResizableSidebar';
 import { canAccessNavItem, filterVisibleNavGroups } from '../../utils/navAccess';
 
 export default function BusinessLayout() {
@@ -15,6 +17,7 @@ export default function BusinessLayout() {
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { width: sidebarWidth, isResizing, startResize } = useResizableSidebar();
   const notificationPanelRef = useRef<HTMLDivElement | null>(null);
   const user = useAuthStore((state) => state.user);
   const refreshToken = useAuthStore((state) => state.refreshToken);
@@ -76,11 +79,12 @@ export default function BusinessLayout() {
     <div className="apexcareir-ui min-h-screen bg-apex-background">
       <div className="flex">
         <aside
-          className={`apex-shell-sidebar fixed inset-y-0 z-40 w-72 transform backdrop-blur-sm transition-transform duration-200 lg:static lg:translate-x-0 ${
+          className={`apex-shell-sidebar fixed inset-y-0 z-40 flex h-screen shrink-0 transform flex-col overflow-hidden backdrop-blur-sm transition-transform duration-200 lg:static lg:translate-x-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
+          } ${isResizing ? 'apex-shell-sidebar-resizing' : ''}`}
+          style={{ width: sidebarWidth }}
         >
-          <div className="border-b border-[rgba(184,149,47,0.16)] px-4 py-4">
+          <div className="shrink-0 border-b border-[rgba(184,149,47,0.16)] px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <CompanyBrandingHeader compact />
               <button className="apex-btn-soft lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
@@ -88,10 +92,22 @@ export default function BusinessLayout() {
               </button>
             </div>
           </div>
-          <BusinessSidebar
-            groups={visibleNavGroups}
-            navigationMode={navigationMode}
-            onNavigate={() => setSidebarOpen(false)}
+          <div className="apex-shell-sidebar-nav min-h-0 flex-1">
+            <BusinessSidebar
+              groups={visibleNavGroups}
+              navigationMode={navigationMode}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          </div>
+          <div
+            className={`apex-shell-sidebar-resize-handle ${isResizing ? 'apex-shell-sidebar-resize-handle-active' : ''}`}
+            onPointerDown={startResize}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            aria-valuemin={200}
+            aria-valuemax={520}
+            aria-valuenow={sidebarWidth}
           />
         </aside>
 
@@ -108,6 +124,7 @@ export default function BusinessLayout() {
             </div>
             <div className="flex items-center gap-3">
               <QuickPreferencesPanel />
+              <SystemClockDisplay />
               {canViewNotifications && (
                 <div className="relative" ref={notificationPanelRef}>
                   <button

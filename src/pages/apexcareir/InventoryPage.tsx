@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import DualCurrencyInput from '../../components/apexcareir/DualCurrencyInput';
 import ExchangeRateControl from '../../components/apexcareir/ExchangeRateControl';
 import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
+import { useServerClock } from '../../hooks/useServerClock';
 import {
   archiveProduct,
   createBulkStockReceipt,
@@ -186,7 +187,7 @@ export default function InventoryPage() {
   const createStockTransferMutation = useMutation({ mutationFn: createStockTransfer, onSuccess: invalidateInventory });
   const createStockAdjustmentMutation = useMutation({ mutationFn: createStockAdjustment, onSuccess: invalidateInventory });
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const { localDate: today } = useServerClock();
   const categories = categoriesQuery.data ?? [];
   const suppliers = suppliersQuery.data ?? [];
   const products = productsQuery.data ?? [];

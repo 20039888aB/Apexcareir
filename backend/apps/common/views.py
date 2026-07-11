@@ -1,5 +1,5 @@
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -8,6 +8,7 @@ from apps.audit_logs.services import log_audit_event
 
 from .models import CompanySettings, TransactionEvent
 from .serializers import CompanySettingsSerializer, TransactionEventSerializer
+from .services.datetime_context import get_system_clock_payload
 
 
 class HealthCheckView(APIView):
@@ -15,6 +16,13 @@ class HealthCheckView(APIView):
 
     def get(self, request):
         return Response({"status": "ok"})
+
+
+class SystemClockAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response(get_system_clock_payload())
 
 
 class CompanySettingsAPIView(APIView):

@@ -1,6 +1,6 @@
 import django_filters
 
-from .models import Sale
+from .models import Invoice, Sale
 
 
 class SaleFilterSet(django_filters.FilterSet):
@@ -10,3 +10,12 @@ class SaleFilterSet(django_filters.FilterSet):
     class Meta:
         model = Sale
         fields = ["product", "customer", "salesperson", "invoice_number"]
+
+
+class InvoiceFilterSet(django_filters.FilterSet):
+    start_date = django_filters.DateFilter(field_name="invoice_date", lookup_expr="gte")
+    end_date = django_filters.DateFilter(field_name="invoice_date", lookup_expr="lte")
+
+    class Meta:
+        model = Invoice
+        fields = ["status", "payment_status"]

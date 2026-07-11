@@ -118,6 +118,8 @@ type InvoiceListParams = {
   search?: string;
   status?: InvoiceStatus;
   payment_status?: InvoicePaymentStatus;
+  start_date?: string;
+  end_date?: string;
 };
 
 function buildInvoiceFormData(payload: InvoiceInput) {
