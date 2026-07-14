@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.github
+backend/.venv
+backend/media
+backend/staticfiles
+backend/__pycache__
+*.md
+.env
+.env.*
+!backend/.env.example
+!backend/.env.production.example
+!.env.example
+!.env.production.example

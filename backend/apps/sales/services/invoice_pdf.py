@@ -325,7 +325,6 @@ def build_invoice_pdf_bytes(*, invoice, sale, company: Optional[CompanySettings]
     summary = [
         ["Subtotal", _money(invoice.subtotal)],
         ["Discount", _money(invoice.discount)],
-        ["Tax", _money(invoice.tax)],
         ["Grand Total", _money(invoice.grand_total)],
         ["Amount Paid", _money(getattr(invoice, "amount_paid", 0))],
         ["Balance Due", _money(invoice.balance_due if hasattr(invoice, "balance_due") else invoice.grand_total)],

@@ -8,7 +8,6 @@ export type InvoiceLineForm = {
   unit_price: string;
   cost_price: string;
   discount: string;
-  tax: string;
 };
 
 type InvoiceLineEditorProps = {
@@ -25,7 +24,6 @@ function createEmptyLine(): InvoiceLineForm {
     unit_price: '',
     cost_price: '',
     discount: '0',
-    tax: '0',
   };
 }
 
@@ -46,7 +44,7 @@ export function createInitialInvoiceLines(): InvoiceLineForm[] {
 export function calculateLinesTotal(lines: InvoiceLineForm[]) {
   return lines.reduce((total, line) => {
     const subtotal = parseAmount(line.quantity, 1) * parseAmount(line.unit_price);
-    return total + subtotal - parseAmount(line.discount) + parseAmount(line.tax);
+    return total + subtotal - parseAmount(line.discount);
   }, 0);
 }
 
@@ -129,14 +127,6 @@ export default function InvoiceLineEditor({ lines, products, onChange }: Invoice
               value={line.discount}
               onChange={(event) => updateLine(line.id, { discount: event.target.value })}
               placeholder="Discount"
-            />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={line.tax}
-              onChange={(event) => updateLine(line.id, { tax: event.target.value })}
-              placeholder="Tax"
             />
           </div>
         </div>

@@ -152,8 +152,8 @@ def _recalculate_invoice_totals(invoice: Invoice, sale: Sale):
     subtotal = sale.quantity * sale.price
     invoice.subtotal = subtotal
     invoice.discount = sale.discount
-    invoice.tax = sale.tax
-    invoice.grand_total = sale.total
+    invoice.tax = Decimal("0")
+    invoice.grand_total = subtotal - sale.discount
     return invoice
 
 
@@ -165,6 +165,7 @@ def create_invoice_for_sale(sale: Sale, *, user=None, regenerate: bool = False, 
         sale.save(update_fields=["invoice_number", "updated_at"])
 
     subtotal = sale.quantity * sale.price
+    grand_total = subtotal - sale.discount
     customer = sale.customer_record
     invoice, created = Invoice.objects.update_or_create(
         sale=sale,
@@ -180,8 +181,8 @@ def create_invoice_for_sale(sale: Sale, *, user=None, regenerate: bool = False, 
             "payment_status": Invoice.PaymentStatus.UNPAID,
             "subtotal": subtotal,
             "discount": sale.discount,
-            "tax": sale.tax,
-            "grand_total": sale.total,
+            "tax": Decimal("0"),
+            "grand_total": grand_total,
             "generated_by": user if getattr(user, "is_authenticated", False) else sale.salesperson,
             "updated_by": user if getattr(user, "is_authenticated", False) else None,
             "issued_at": timezone.now(),
@@ -199,7 +200,7 @@ def create_invoice_for_sale(sale: Sale, *, user=None, regenerate: bool = False, 
             unit_price=sale.price,
             cost_price=sale.cost_price,
             discount=sale.discount,
-            tax=sale.tax,
+            tax=Decimal("0"),
             sort_order=0,
         )
         line_item.compute_line_total()
@@ -255,7 +256,7 @@ def _normalize_manual_lines(lines):
                 "unit_price": Decimal(str(line["unit_price"])),
                 "cost_price": Decimal(str(line.get("cost_price", line["product"].purchase_price))),
                 "discount": Decimal(str(line.get("discount", 0))),
-                "tax": Decimal(str(line.get("tax", 0))),
+                "tax": Decimal("0"),
                 "description": line.get("description", ""),
                 "sort_order": index,
             }
@@ -266,7 +267,6 @@ def _normalize_manual_lines(lines):
 def _create_invoice_line_items(invoice: Invoice, lines):
     subtotal = Decimal("0")
     total_discount = Decimal("0")
-    total_tax = Decimal("0")
     created_items = []
     for line in lines:
         item = InvoiceLineItem(
@@ -277,7 +277,7 @@ def _create_invoice_line_items(invoice: Invoice, lines):
             unit_price=line["unit_price"],
             cost_price=line["cost_price"],
             discount=line["discount"],
-            tax=line["tax"],
+            tax=Decimal("0"),
             sort_order=line["sort_order"],
         )
         item.compute_line_total()
@@ -285,11 +285,10 @@ def _create_invoice_line_items(invoice: Invoice, lines):
         created_items.append(item)
         subtotal += Decimal(line["quantity"]) * line["unit_price"]
         total_discount += line["discount"]
-        total_tax += line["tax"]
     invoice.subtotal = subtotal
     invoice.discount = total_discount
-    invoice.tax = total_tax
-    invoice.grand_total = subtotal - total_discount + total_tax
+    invoice.tax = Decimal("0")
+    invoice.grand_total = subtotal - total_discount
     invoice.save(update_fields=["subtotal", "discount", "tax", "grand_total", "updated_at"])
     return created_items
 
@@ -375,7 +374,6 @@ def create_manual_invoice(
                     "unit_price": unit_price,
                     "cost_price": cost_price or product.purchase_price,
                     "discount": discount,
-                    "tax": tax,
                 }
             ]
         )
@@ -391,7 +389,7 @@ def create_manual_invoice(
         quantity=first_line["quantity"],
         price=first_line["unit_price"],
         discount=first_line["discount"],
-        tax=first_line["tax"],
+        tax=Decimal("0"),
         cost_price=first_line["cost_price"],
         date=invoice_date,
         salesperson=user if getattr(user, "is_authenticated", False) else None,
@@ -414,8 +412,7 @@ def create_manual_invoice(
 
     subtotal = sum(Decimal(line["quantity"]) * line["unit_price"] for line in normalized_lines)
     total_discount = sum(line["discount"] for line in normalized_lines)
-    total_tax = sum(line["tax"] for line in normalized_lines)
-    grand_total = subtotal - total_discount + total_tax
+    grand_total = subtotal - total_discount
 
     invoice = Invoice.objects.create(
         invoice_number=invoice_number,
@@ -430,7 +427,7 @@ def create_manual_invoice(
         payment_status=payment_status,
         subtotal=subtotal,
         discount=total_discount,
-        tax=total_tax,
+        tax=Decimal("0"),
         grand_total=grand_total,
         generated_by=user if getattr(user, "is_authenticated", False) else None,
         updated_by=user if getattr(user, "is_authenticated", False) else None,
@@ -468,7 +465,6 @@ def update_invoice_record(invoice: Invoice, *, user=None, validated_data: dict, 
         "unit_price": "price",
         "cost_price": "cost_price",
         "discount": "discount",
-        "tax": "tax",
     }
     for payload_field, sale_field in field_map.items():
         if payload_field in validated_data:

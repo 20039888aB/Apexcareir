@@ -39,7 +39,6 @@ const emptyForm = {
   unit_price: '',
   cost_price: '',
   discount: '0',
-  tax: '0',
   invoice_date: '',
   status: 'draft' as InvoiceStatus,
   payment_status: 'unpaid' as InvoicePaymentStatus,
@@ -82,7 +81,6 @@ function invoiceToForm(invoice: Invoice) {
     unit_price: String(invoice.unit_price),
     cost_price: String(invoice.cost_price),
     discount: String(invoice.discount),
-    tax: String(invoice.tax),
     invoice_date: invoice.invoice_date,
     status: invoice.status,
     payment_status: invoice.payment_status,
@@ -164,11 +162,10 @@ export default function InvoicesPage() {
   }, [activeTab, form.quantity, form.unit_price, invoiceLines]);
 
   const calculatedDiscount = useMemo(() => parseAmount(form.discount), [form.discount]);
-  const calculatedTax = useMemo(() => parseAmount(form.tax), [form.tax]);
 
   const calculatedTotal = useMemo(
-    () => calculatedSubtotal - calculatedDiscount + calculatedTax,
-    [calculatedDiscount, calculatedSubtotal, calculatedTax],
+    () => calculatedSubtotal - calculatedDiscount,
+    [calculatedDiscount, calculatedSubtotal],
   );
 
   const calculatedCostTotal = useMemo(
@@ -305,7 +302,7 @@ export default function InvoicesPage() {
           unit_price: parseAmount(line.unit_price),
           cost_price: parseAmount(line.cost_price),
           discount: parseAmount(line.discount),
-          tax: parseAmount(line.tax),
+          tax: 0,
         }));
       if (lines.length > 1) {
         return { ...base, lines };
@@ -318,7 +315,7 @@ export default function InvoicesPage() {
         unit_price: first?.unit_price,
         cost_price: first?.cost_price,
         discount: first?.discount,
-        tax: first?.tax,
+        tax: 0,
       };
     }
 
@@ -329,7 +326,7 @@ export default function InvoicesPage() {
       unit_price: parseAmount(form.unit_price),
       cost_price: parseAmount(form.cost_price),
       discount: parseAmount(form.discount),
-      tax: parseAmount(form.tax),
+      tax: 0,
     };
   };
 
@@ -500,16 +497,6 @@ export default function InvoicesPage() {
               onChange={(event) => setForm((current) => ({ ...current, discount: event.target.value }))}
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">Tax</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.tax}
-              onChange={(event) => setForm((current) => ({ ...current, tax: event.target.value }))}
-            />
-          </div>
         </>
       )}
       <div>
@@ -566,10 +553,6 @@ export default function InvoicesPage() {
           <p className="flex items-center justify-between gap-3">
             <span className="text-slate-500">Discount</span>
             <span className="font-medium text-slate-800">-{formatCurrency(calculatedDiscount)}</span>
-          </p>
-          <p className="flex items-center justify-between gap-3">
-            <span className="text-slate-500">Tax</span>
-            <span className="font-medium text-slate-800">+{formatCurrency(calculatedTax)}</span>
           </p>
           <p className="flex items-center justify-between gap-3 border-t border-slate-200 pt-2">
             <span className="font-semibold text-slate-700">Calculated Total</span>

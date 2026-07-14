@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
@@ -240,6 +242,9 @@ class InvoiceWriteSerializer(serializers.Serializer):
         return super().run_validation(data)
 
     def validate(self, attrs):
+        attrs["tax"] = Decimal("0")
+        for line in attrs.get("lines") or []:
+            line["tax"] = Decimal("0")
         if self.instance is None:
             lines = attrs.get("lines") or []
             if not lines:

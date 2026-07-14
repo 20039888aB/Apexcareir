@@ -67,7 +67,6 @@ export default function SalesPage() {
     quantity: 1,
     price: 0,
     discount: 0,
-    tax: 0,
     cost_price: 0,
     date: '',
   });
@@ -124,7 +123,6 @@ export default function SalesPage() {
         customer_address: '',
         quantity: 1,
         discount: 0,
-        tax: 0,
       }));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['sales', 'history'] }),
@@ -164,8 +162,8 @@ export default function SalesPage() {
 
   const selectedProduct = (productsQuery.data ?? []).find((product) => product.id === Number(selectedProductId));
   const calculatedTotal = useMemo(
-    () => Number(entryForm.quantity) * Number(entryForm.price) - Number(entryForm.discount) + Number(entryForm.tax),
-    [entryForm.discount, entryForm.price, entryForm.quantity, entryForm.tax],
+    () => Number(entryForm.quantity) * Number(entryForm.price) - Number(entryForm.discount),
+    [entryForm.discount, entryForm.price, entryForm.quantity],
   );
   const calculatedProfit = useMemo(
     () => calculatedTotal - Number(entryForm.quantity) * Number(entryForm.cost_price),
@@ -210,7 +208,7 @@ export default function SalesPage() {
       quantity: Number(entryForm.quantity),
       price: Number(entryForm.price),
       discount: Number(entryForm.discount || 0),
-      tax: Number(entryForm.tax || 0),
+      tax: 0,
       cost_price: Number(entryForm.cost_price),
       date: entryForm.date,
     });
@@ -343,17 +341,6 @@ export default function SalesPage() {
                   value={entryForm.discount}
                   onChange={(event) => setEntryForm((current) => ({ ...current, discount: Number(event.target.value) }))}
                   placeholder="Discount"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700">Tax</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={entryForm.tax}
-                  onChange={(event) => setEntryForm((current) => ({ ...current, tax: Number(event.target.value) }))}
-                  placeholder="Tax"
                 />
               </div>
               <div>

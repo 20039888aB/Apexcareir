@@ -111,6 +111,11 @@ class Invoice(models.Model):
     def __str__(self):
         return self.invoice_number
 
+    def save(self, *args, **kwargs):
+        self.tax = Decimal("0")
+        self.grand_total = (self.subtotal or Decimal("0")) - (self.discount or Decimal("0"))
+        super().save(*args, **kwargs)
+
     @property
     def balance_due(self):
         return max(self.grand_total - (self.amount_paid or Decimal("0")), Decimal("0"))
@@ -137,8 +142,13 @@ class InvoiceLineItem(models.Model):
 
     def compute_line_total(self):
         subtotal = Decimal(self.quantity) * self.unit_price
-        self.line_total = subtotal - self.discount + self.tax
+        self.tax = Decimal("0")
+        self.line_total = subtotal - self.discount
         return self.line_total
+
+    def save(self, *args, **kwargs):
+        self.compute_line_total()
+        super().save(*args, **kwargs)
 
 
 class InvoicePayment(models.Model):
