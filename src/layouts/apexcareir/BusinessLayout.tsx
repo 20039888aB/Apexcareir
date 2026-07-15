@@ -10,6 +10,7 @@ import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import { listNotifications, logout, markAllNotificationsRead, markNotificationRead } from '../../services';
 import { useAuthStore } from '../../store';
 import { useResizableSidebar } from '../../hooks/useResizableSidebar';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { canAccessNavItem, filterVisibleNavGroups } from '../../utils/navAccess';
 
 export default function BusinessLayout() {
@@ -18,6 +19,8 @@ export default function BusinessLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { width: sidebarWidth, isResizing, startResize } = useResizableSidebar();
+  const isLargeScreen = useMediaQuery('(min-width: 1024px)');
+  const effectiveSidebarWidth = isLargeScreen ? sidebarWidth : Math.min(sidebarWidth, 288);
   const notificationPanelRef = useRef<HTMLDivElement | null>(null);
   const user = useAuthStore((state) => state.user);
   const refreshToken = useAuthStore((state) => state.refreshToken);
@@ -62,6 +65,18 @@ export default function BusinessLayout() {
   };
 
   useEffect(() => {
+    if (!sidebarOpen || isLargeScreen) {
+      document.body.style.overflow = '';
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [sidebarOpen, isLargeScreen]);
+
+  useEffect(() => {
     if (!notificationsOpen) {
       return;
     }
@@ -76,18 +91,26 @@ export default function BusinessLayout() {
   }, [notificationsOpen]);
 
   return (
-    <div className="apexcareir-ui min-h-screen bg-apex-background">
+    <div className="apexcareir-ui min-h-screen overflow-x-hidden bg-apex-background">
       <div className="flex">
+        {sidebarOpen && !isLargeScreen ? (
+          <button
+            type="button"
+            className="fixed inset-0 z-30 bg-slate-900/45 backdrop-blur-[1px] lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close navigation menu"
+          />
+        ) : null}
         <aside
-          className={`apex-shell-sidebar fixed inset-y-0 z-40 flex h-screen shrink-0 transform flex-col overflow-hidden backdrop-blur-sm transition-transform duration-200 lg:static lg:translate-x-0 ${
+          className={`apex-shell-sidebar fixed inset-y-0 z-40 flex h-[100dvh] max-w-[88vw] shrink-0 transform flex-col overflow-hidden backdrop-blur-sm transition-transform duration-200 lg:static lg:h-screen lg:max-w-none lg:translate-x-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           } ${isResizing ? 'apex-shell-sidebar-resizing' : ''}`}
-          style={{ width: sidebarWidth }}
+          style={{ width: effectiveSidebarWidth }}
         >
           <div className="shrink-0 border-b border-[rgba(184,149,47,0.16)] px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <CompanyBrandingHeader compact />
-              <button className="apex-btn-soft lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
+              <button className="apex-btn-soft min-h-11 min-w-11 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
                 <X size={18} />
               </button>
             </div>
@@ -100,7 +123,7 @@ export default function BusinessLayout() {
             />
           </div>
           <div
-            className={`apex-shell-sidebar-resize-handle ${isResizing ? 'apex-shell-sidebar-resize-handle-active' : ''}`}
+            className={`apex-shell-sidebar-resize-handle hidden lg:block ${isResizing ? 'apex-shell-sidebar-resize-handle-active' : ''}`}
             onPointerDown={startResize}
             role="separator"
             aria-orientation="vertical"
@@ -111,24 +134,24 @@ export default function BusinessLayout() {
           />
         </aside>
 
-        <div className="min-h-screen flex-1 lg:ml-0">
-          <header className="apex-shell-header sticky top-0 z-30 flex items-center justify-between px-4 py-3 shadow-sm backdrop-blur sm:px-6">
-            <div className="flex items-center gap-3">
-              <button className="apex-btn-soft lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
+        <div className="min-h-screen min-w-0 flex-1 lg:ml-0">
+          <header className="apex-shell-header sticky top-0 z-30 flex flex-wrap items-center justify-between gap-2 px-3 py-2 shadow-sm backdrop-blur sm:gap-3 sm:px-6 sm:py-3">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <button className="apex-btn-soft min-h-11 min-w-11 shrink-0 lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
                 <Menu size={18} />
               </button>
-              <div>
-                <p className="text-xs text-slate-500">Inventory & Business Management</p>
-                <h1 className="text-sm font-semibold text-slate-900">Apex Care IR</h1>
+              <div className="min-w-0">
+                <p className="truncate text-xs text-slate-500">Inventory & Business Management</p>
+                <h1 className="truncate text-sm font-semibold text-slate-900">Apex Care IR</h1>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:gap-3">
               <QuickPreferencesPanel />
               <SystemClockDisplay />
               {canViewNotifications && (
                 <div className="relative" ref={notificationPanelRef}>
                   <button
-                    className="apex-btn-soft rounded-full !p-2 text-slate-600"
+                    className="apex-btn-soft min-h-11 min-w-11 rounded-full !p-2.5 text-slate-600"
                     onClick={() => setNotificationsOpen((previous) => !previous)}
                     aria-label="Toggle notifications"
                     aria-expanded={notificationsOpen}
@@ -142,7 +165,7 @@ export default function BusinessLayout() {
                   </button>
 
                   {notificationsOpen && (
-                    <div className="apex-data-card absolute right-0 z-40 mt-2 w-80 p-3 shadow-lg">
+                    <div className="apex-data-card absolute right-0 z-40 mt-2 w-[min(20rem,calc(100vw-1.5rem))] p-3 shadow-lg">
                       <div className="mb-2 flex items-center justify-between">
                         <p className="text-xs font-semibold text-slate-800">Notifications</p>
                         <button
@@ -195,13 +218,13 @@ export default function BusinessLayout() {
                 <UserCircle size={16} className="text-slate-500" />
                 <span className="text-xs font-medium text-slate-700">{user?.email ?? 'User'}</span>
               </div>
-              <button className="apex-btn-soft inline-flex items-center gap-1" onClick={handleLogout}>
-                <LogOut size={14} />
-                Logout
+              <button className="apex-btn-soft inline-flex min-h-11 items-center gap-1 px-3" onClick={handleLogout}>
+                <LogOut size={16} />
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </header>
-          <main className="p-4 sm:p-6">
+          <main className="min-w-0 p-3 sm:p-4 md:p-6">
             <Outlet />
           </main>
         </div>

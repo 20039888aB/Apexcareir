@@ -65,9 +65,10 @@ export default function Navbar() {
           </div>
 
           <button
-            className="lg:hidden p-2 rounded-xl text-forest hover:bg-sky-pad transition-colors"
+            className="lg:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-forest transition-colors hover:bg-sky-pad"
             onClick={() => setOpen(!open)}
             aria-label="Toggle menu"
+            aria-expanded={open}
           >
             {open ? <X size={22} /> : <Menu size={22} />}
           </button>

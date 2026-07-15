@@ -5,9 +5,13 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
   body {
     @apply bg-cream text-ink font-sans antialiased;
+    overflow-x: hidden;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
   }
   *:focus-visible {
     outline: 2px solid rgba(184, 149, 47, 0.85);
@@ -26,18 +30,21 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .tilt-card-body {
+    transform: none !important;
+  }
 }
 
 @layer components {
   .section-sky {
-    @apply py-20 md:py-28;
+    @apply py-14 sm:py-20 md:py-28;
     background: linear-gradient(180deg, rgba(232, 244, 248, 0.7) 0%, rgba(248, 246, 242, 0.9) 100%);
   }
   .section-white {
-    @apply bg-white py-20 md:py-28;
+    @apply bg-white py-14 sm:py-20 md:py-28;
   }
   .section-cream {
-    @apply py-20 md:py-28;
+    @apply py-14 sm:py-20 md:py-28;
     background-color: #F8F6F2;
   }
   .btn-primary {
@@ -139,5 +146,12 @@
   }
   .text-brand-burgundy {
     color: #6E2C3E;
+  }
+  .tilt-card-scene {
+    transform-style: preserve-3d;
+  }
+  .tilt-card-body {
+    will-change: transform;
+    transform-style: preserve-3d;
   }
 }

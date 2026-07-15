@@ -6,9 +6,9 @@ import ApexcareAIFab from '../ApexcareAIFab';
 
 export default function Layout() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen min-h-[100dvh] flex-col overflow-x-hidden">
       <Navbar />
-      <main className="flex-1 pt-24">
+      <main className="flex-1 pt-20 sm:pt-24">
         <Outlet />
       </main>
       <Footer />

@@ -29,7 +29,7 @@ export default function ApexcareAIFab() {
           initial={{ opacity: 0, y: 12, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 12, scale: 0.98 }}
-          className="fixed bottom-24 right-4 z-50 h-[480px] w-[min(360px,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-white/50 bg-white/95 shadow-2xl backdrop-blur-md sm:right-6"
+          className="fixed bottom-[5.75rem] right-4 z-50 flex h-[min(480px,calc(100dvh-7rem))] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-white/50 bg-white/95 shadow-2xl backdrop-blur-md sm:bottom-24 sm:right-6"
         >
           <div className="flex items-center justify-between border-b border-gold/15 bg-sky-pad/45 px-3 py-2">
             <div className="flex items-center gap-2">
@@ -103,7 +103,7 @@ export default function ApexcareAIFab() {
             </select>
           </div>
 
-          <div className="mt-2 h-[246px] space-y-2 overflow-y-auto px-3">
+          <div className="mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto px-3">
             {messages.map((message, index) => (
               <div
                 key={index}
@@ -118,7 +118,7 @@ export default function ApexcareAIFab() {
             ))}
           </div>
 
-          <form onSubmit={onSubmit} className="absolute inset-x-0 bottom-0 border-t border-sky-pad/70 bg-white p-3">
+          <form onSubmit={onSubmit} className="mt-auto border-t border-sky-pad/70 bg-white p-3">
             <div className="mb-2 flex items-center justify-between">
               <button
                 type="button"
@@ -147,7 +147,7 @@ export default function ApexcareAIFab() {
       )}
 
       <motion.div
-        className="fixed bottom-6 right-24 z-50 sm:right-[5.5rem]"
+        className="fixed bottom-24 right-4 z-50 sm:bottom-6 sm:right-[5.5rem]"
         animate={{ y: [0, -3, 0] }}
         transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
       >

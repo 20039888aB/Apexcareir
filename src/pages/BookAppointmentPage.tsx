@@ -72,6 +72,8 @@ function StyledImage({ src, fallbackSrc, alt, className }: StyledImageProps) {
       src={activeSrc}
       alt={alt}
       className={className}
+      loading="lazy"
+      decoding="async"
       onError={() => {
         if (activeSrc !== fallbackSrc) {
           setActiveSrc(fallbackSrc);
@@ -189,25 +191,44 @@ export default function BookAppointmentPage() {
 
           <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
             <FadeIn direction="left">
-              <form onSubmit={handleSubmit} className="card modern-ir-card !p-6 md:!p-8 space-y-4">
-                <h2 className="font-display text-2xl font-semibold text-navy">Appointment Request Form</h2>
-                <p className="text-sm leading-relaxed text-navy/60">
-                  Share your preferred timing, county, and procedure interest so the team can plan the most suitable appointment pathway for you.
-                </p>
+              <form
+                onSubmit={handleSubmit}
+                className="relative overflow-hidden rounded-[1.75rem] border-2 border-burgundy/40 border-l-[4px] border-l-forest/70 bg-gradient-to-br from-burgundy/8 via-white to-forest/8 p-5 shadow-[0_20px_50px_rgba(110,44,62,0.14)] sm:p-6 md:p-7 space-y-5"
+              >
+                <div className="pointer-events-none absolute -left-10 top-8 h-36 w-36 rounded-full bg-forest/20 blur-3xl" />
+                <div className="pointer-events-none absolute -right-8 bottom-6 h-40 w-40 rounded-full bg-burgundy/18 blur-3xl" />
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-navy/60 mb-1.5">Full Name</label>
+                <div className="relative">
+                  <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-burgundy/35 border-l-[3px] border-l-forest/60 bg-burgundy/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-burgundy">
+                    <CalendarDays size={12} className="text-gold" />
+                    Appointment Request
+                  </p>
+                  <h2 className="font-display text-2xl font-semibold text-forest sm:text-[1.7rem]">Book Your Visit</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-navy/65">
+                    Share your preferred timing, county, and procedure interest so the team can plan the most suitable appointment pathway for you.
+                  </p>
+                </div>
+
+                <div className="relative grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2 rounded-2xl border border-burgundy/30 border-l-[3px] border-l-forest/55 bg-gradient-to-r from-burgundy/6 via-white/90 to-forest/6 p-4">
+                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-burgundy">
+                      <span className="h-2 w-2 rounded-full bg-forest" />
+                      Full Name
+                    </label>
                     <input
                       required
                       value={form.full_name}
                       onChange={(event) => setForm((current) => ({ ...current, full_name: event.target.value }))}
-                      className="w-full rounded-xl border border-sky-light/50 bg-sky-pad/30 px-4 py-3 text-sm text-navy outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
+                      className="w-full rounded-xl border border-burgundy/25 border-l-2 border-l-forest/40 bg-white/90 px-4 py-3 text-sm text-navy outline-none transition-colors focus:border-burgundy focus:border-l-forest focus:ring-2 focus:ring-forest/20"
                       placeholder="Your full name"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-navy/60 mb-1.5">Phone Number</label>
+
+                  <div className="rounded-2xl border border-burgundy/30 border-l-[3px] border-l-forest/55 bg-gradient-to-r from-burgundy/6 via-white/90 to-forest/5 p-4">
+                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-burgundy">
+                      <span className="h-2 w-2 rounded-full bg-forest" />
+                      Phone Number
+                    </label>
                     <input
                       required
                       value={form.phone_number}
@@ -221,29 +242,37 @@ export default function BookAppointmentPage() {
                       pattern="\d{10}"
                       minLength={10}
                       maxLength={10}
-                      className="w-full rounded-xl border border-sky-light/50 bg-sky-pad/30 px-4 py-3 text-sm text-navy outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
+                      className="w-full rounded-xl border border-burgundy/25 border-l-2 border-l-forest/40 bg-white/90 px-4 py-3 text-sm text-navy outline-none transition-colors focus:border-burgundy focus:border-l-forest focus:ring-2 focus:ring-forest/20"
                       placeholder="0712345678"
                     />
                     {phoneError && <p className="mt-1 text-xs text-red-600">{phoneError}</p>}
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-navy/60 mb-1.5">Email (optional)</label>
+
+                  <div className="rounded-2xl border border-burgundy/30 border-l-[3px] border-l-forest/55 bg-gradient-to-r from-burgundy/6 via-white/90 to-forest/5 p-4">
+                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-burgundy">
+                      <span className="h-2 w-2 rounded-full bg-forest" />
+                      Email (optional)
+                    </label>
                     <input
                       type="email"
                       value={form.email}
                       onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-                      className="w-full rounded-xl border border-sky-light/50 bg-sky-pad/30 px-4 py-3 text-sm text-navy outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
+                      className="w-full rounded-xl border border-burgundy/25 border-l-2 border-l-forest/40 bg-white/90 px-4 py-3 text-sm text-navy outline-none transition-colors focus:border-burgundy focus:border-l-forest focus:ring-2 focus:ring-forest/20"
                       placeholder="you@example.com"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-navy/60 mb-1.5">County</label>
+
+                  <div className="rounded-2xl border border-burgundy/30 border-l-[3px] border-l-forest/55 bg-gradient-to-r from-burgundy/6 via-white/90 to-forest/5 p-4">
+                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-burgundy">
+                      <span className="h-2 w-2 rounded-full bg-forest" />
+                      County
+                    </label>
                     <input
                       required
                       list="kenya-counties"
                       value={form.county}
                       onChange={(event) => setForm((current) => ({ ...current, county: event.target.value }))}
-                      className="w-full rounded-xl border border-sky-light/50 bg-sky-pad/30 px-4 py-3 text-sm text-navy outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
+                      className="w-full rounded-xl border border-burgundy/25 border-l-2 border-l-forest/40 bg-white/90 px-4 py-3 text-sm text-navy outline-none transition-colors focus:border-burgundy focus:border-l-forest focus:ring-2 focus:ring-forest/20"
                       placeholder="Search and select county"
                     />
                     <datalist id="kenya-counties">
@@ -253,45 +282,74 @@ export default function BookAppointmentPage() {
                     </datalist>
                     <p className="mt-1 text-[11px] text-navy/50">Start typing to search all 47 counties.</p>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-navy/60 mb-1.5">Preferred Date (optional)</label>
+
+                  <div className="rounded-2xl border border-burgundy/30 border-l-[3px] border-l-forest/55 bg-gradient-to-r from-burgundy/6 via-white/90 to-forest/5 p-4">
+                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-burgundy">
+                      <span className="h-2 w-2 rounded-full bg-forest" />
+                      Preferred Date (optional)
+                    </label>
                     <input
                       type="date"
                       value={form.preferred_date}
                       onChange={(event) => setForm((current) => ({ ...current, preferred_date: event.target.value }))}
-                      className="w-full rounded-xl border border-sky-light/50 bg-sky-pad/30 px-4 py-3 text-sm text-navy outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
+                      className="w-full rounded-xl border border-burgundy/25 border-l-2 border-l-forest/40 bg-white/90 px-4 py-3 text-sm text-navy outline-none transition-colors focus:border-burgundy focus:border-l-forest focus:ring-2 focus:ring-forest/20"
                     />
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-navy/60 mb-1.5">Procedure / Condition (optional)</label>
+
+                  <div className="sm:col-span-2 rounded-2xl border border-burgundy/30 border-l-[3px] border-l-forest/55 bg-gradient-to-r from-burgundy/6 via-white/90 to-forest/6 p-4">
+                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-burgundy">
+                      <span className="h-2 w-2 rounded-full bg-forest" />
+                      Procedure / Condition (optional)
+                    </label>
                     <input
                       value={form.procedure_interest}
                       onChange={(event) =>
                         setForm((current) => ({ ...current, procedure_interest: event.target.value }))
                       }
-                      className="w-full rounded-xl border border-sky-light/50 bg-sky-pad/30 px-4 py-3 text-sm text-navy outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
+                      className="w-full rounded-xl border border-burgundy/25 border-l-2 border-l-forest/40 bg-white/90 px-4 py-3 text-sm text-navy outline-none transition-colors focus:border-burgundy focus:border-l-forest focus:ring-2 focus:ring-forest/20"
                       placeholder="e.g. Uterine fibroid embolization, biopsy, DVT, varicose veins"
                     />
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-navy/60 mb-1.5">Message (optional)</label>
+
+                  <div className="sm:col-span-2 rounded-2xl border border-burgundy/30 border-l-[3px] border-l-forest/55 bg-gradient-to-r from-burgundy/8 via-white/90 to-forest/8 p-4">
+                    <label className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-burgundy">
+                      <span className="h-2 w-2 rounded-full bg-forest" />
+                      Message (optional)
+                    </label>
                     <textarea
                       rows={4}
                       value={form.message}
                       onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
-                      className="w-full rounded-xl border border-sky-light/50 bg-sky-pad/30 px-4 py-3 text-sm text-navy outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors resize-none"
+                      className="w-full rounded-xl border border-burgundy/25 border-l-2 border-l-forest/40 bg-white/90 px-4 py-3 text-sm text-navy outline-none transition-colors resize-none focus:border-burgundy focus:border-l-forest focus:ring-2 focus:ring-forest/20"
                       placeholder="Briefly describe your condition or referral notes"
                     />
                   </div>
                 </div>
 
                 {createMutation.isError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+                  <div className="relative rounded-xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 px-4 py-3 text-xs text-red-700">
                     Unable to submit your appointment right now. Please try again.
                   </div>
                 )}
 
-                <button type="submit" disabled={createMutation.isPending || Boolean(phoneError)} className="btn-gold w-full">
+                {createMutation.isSuccess && (
+                  <div className="relative overflow-hidden rounded-2xl border-2 border-burgundy/40 border-l-[4px] border-l-forest/70 bg-gradient-to-br from-emerald-50 via-white to-burgundy/10 px-4 py-4 text-sm text-forest">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-forest text-white">
+                        <CheckCircle2 size={20} />
+                      </div>
+                      <p>
+                        Appointment request sent successfully. Your booking has been saved and the care team has been notified.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || Boolean(phoneError)}
+                  className="relative w-full overflow-hidden rounded-2xl border-2 border-burgundy/35 border-l-[3px] border-l-forest/70 bg-gradient-to-r from-forest via-emerald-700 to-burgundy px-6 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(110,44,62,0.22)] transition-transform duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-65 inline-flex items-center justify-center gap-2"
+                >
                   <Send size={16} />
                   {createMutation.isPending ? 'Submitting Appointment...' : 'Submit Appointment'}
                 </button>
@@ -388,7 +446,7 @@ export default function BookAppointmentPage() {
                   </li>
                 </ul>
 
-                <div className="mt-6 rounded-xl border border-gold/25 bg-gold/10 p-4">
+                <div className="mt-6 rounded-xl border border-burgundy/30 border-l-[3px] border-l-forest/55 bg-gradient-to-r from-burgundy/8 via-white/90 to-forest/8 p-4">
                   <p className="text-xs font-semibold text-burgundy uppercase tracking-wide mb-1">Booking Window</p>
                   <p className="text-sm text-navy/75 flex items-center gap-2">
                     <CalendarDays size={16} className="text-gold" />
@@ -396,11 +454,6 @@ export default function BookAppointmentPage() {
                   </p>
                 </div>
 
-                {createMutation.isSuccess && (
-                  <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                    Appointment request sent successfully. Your booking has been saved and the care team has been notified.
-                  </div>
-                )}
               </div>
             </FadeIn>
           </div>

@@ -93,7 +93,8 @@
 .apex-btn-soft {
   border-radius: 0.5rem;
   border: 1px solid rgba(27, 77, 62, 0.16);
-  padding: 0.375rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  min-height: 2.75rem;
   font-size: 0.75rem;
   font-weight: 600;
   transition: all 0.2s ease;
@@ -143,7 +144,8 @@
 
 .apex-tab {
   border-radius: 0.5rem;
-  padding: 0.375rem 0.75rem;
+  padding: 0.5rem 0.85rem;
+  min-height: 2.75rem;
   font-size: 0.75rem;
   font-weight: 600;
   transition: all 0.2s ease;
@@ -1088,8 +1090,9 @@
 
 .apex-admin-action-btn {
   border-radius: 0.55rem;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.72rem;
+  padding: 0.5rem 0.75rem;
+  min-height: 2.75rem;
+  font-size: 0.78rem;
   font-weight: 600;
   border: 1px solid transparent;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -1359,5 +1362,39 @@
   .apex-admin-logo-glow {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .apex-sidebar-nav-menu {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .apex-nav-group-toggle,
+  .apex-nav-sublink {
+    white-space: normal;
+  }
+
+  .apex-btn-soft,
+  .apex-tab,
+  .apex-admin-action-btn {
+    min-height: 2.75rem;
+  }
+
+  .apex-admin-action-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.78rem;
+  }
+
+  .apex-shell-sidebar-resize-handle {
+    display: none;
+  }
+}
+
+@supports (padding: max(0px)) {
+  .apexcareir-ui {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
   }
 }

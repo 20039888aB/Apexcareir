@@ -9,6 +9,7 @@ import ProfileImage from '../components/ProfileImage';
 import FloatingMedicalBg from '../components/animations/FloatingMedicalBg';
 import FloatingIRMotifs from '../components/animations/FloatingIRMotifs';
 import FadeIn from '../components/animations/FadeIn';
+import IRGalleryBento from '../components/gallery/IRGalleryBento';
 import { doctor, credentials, stats, services, faqs } from '../data/content';
 import { getServiceIcon } from '../utils/serviceIcons';
 
@@ -142,6 +143,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <IRGalleryBento />
 
       {/* Stats */}
       <section className="bg-forest py-12">

@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.notifications.models import EmailNotificationLog
+from apps.notifications.services import process_pending_email_logs
 
 
 @override_settings(
@@ -26,10 +27,14 @@ class AppointmentAndContactNotificationTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ["notify@example.com"])
 
         email_log = EmailNotificationLog.objects.latest("created_at")
+        self.assertEqual(email_log.status, EmailNotificationLog.Status.QUEUED)
+
+        process_pending_email_logs(limit=5)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["notify@example.com"])
+        email_log.refresh_from_db()
         self.assertEqual(email_log.status, EmailNotificationLog.Status.SENT)
 
     def test_appointment_request_sends_email_immediately(self):
@@ -49,8 +54,12 @@ class AppointmentAndContactNotificationTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ["notify@example.com"])
 
         email_log = EmailNotificationLog.objects.latest("created_at")
+        self.assertEqual(email_log.status, EmailNotificationLog.Status.QUEUED)
+
+        process_pending_email_logs(limit=5)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["notify@example.com"])
+        email_log.refresh_from_db()
         self.assertEqual(email_log.status, EmailNotificationLog.Status.SENT)

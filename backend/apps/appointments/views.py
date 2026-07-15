@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from apps.accounts.permissions import HasBusinessPermission
 from apps.audit_logs.services import log_audit_event
 from apps.notifications.models import Notification
-from apps.notifications.services import NotificationService, process_pending_email_logs
+from apps.notifications.services import NotificationService
 
 from .models import Appointment, ContactRequest
 from .serializers import (
@@ -15,14 +15,6 @@ from .serializers import (
     ContactRequestAdminSerializer,
     ContactRequestPublicCreateSerializer,
 )
-
-
-def _attempt_immediate_email_dispatch(limit=20):
-    try:
-        process_pending_email_logs(limit=limit)
-    except Exception:
-        # Never fail the patient-facing request because email delivery had an issue.
-        return
 
 
 class AppointmentViewSet(viewsets.ModelViewSet):
@@ -53,29 +45,32 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             target=appointment,
             metadata={"status": appointment.status, "county": appointment.county},
         )
-        NotificationService.send(
-            title="New Appointment Booking",
-            message=(
-                f"Patient: {appointment.full_name}. Phone: {appointment.phone_number}. "
-                f"Email: {appointment.email or 'N/A'}. "
-                f"County: {appointment.county}. Preferred date: {appointment.preferred_date or 'N/A'}. "
-                f"Preferred time: {appointment.preferred_time or 'N/A'}. "
-                f"Procedure interest: {appointment.procedure_interest or 'N/A'}. "
-                f"Message: {appointment.message or 'N/A'}."
-            ),
-            event_code="appointments.new_booking",
-            notification_type=Notification.NotificationType.APPOINTMENT,
-            priority=Notification.Priority.HIGH,
-            ui_type=Notification.Type.INFO,
-            dedup_key=f"appointment-{appointment.id}",
-            related_module="appointments",
-            reference_id=str(appointment.id),
-            source_model="appointments.appointment",
-            source_id=appointment.id,
-            created_by=self.request.user if getattr(self.request, "user", None) else None,
-            direct_emails=[settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None,
-        )
-        _attempt_immediate_email_dispatch()
+        try:
+            NotificationService.send(
+                title="New Appointment Booking",
+                message=(
+                    f"Patient: {appointment.full_name}. Phone: {appointment.phone_number}. "
+                    f"Email: {appointment.email or 'N/A'}. "
+                    f"County: {appointment.county}. Preferred date: {appointment.preferred_date or 'N/A'}. "
+                    f"Preferred time: {appointment.preferred_time or 'N/A'}. "
+                    f"Procedure interest: {appointment.procedure_interest or 'N/A'}. "
+                    f"Message: {appointment.message or 'N/A'}."
+                ),
+                event_code="appointments.new_booking",
+                notification_type=Notification.NotificationType.APPOINTMENT,
+                priority=Notification.Priority.HIGH,
+                ui_type=Notification.Type.INFO,
+                dedup_key=f"appointment-{appointment.id}",
+                related_module="appointments",
+                reference_id=str(appointment.id),
+                source_model="appointments.appointment",
+                source_id=appointment.id,
+                created_by=self.request.user if getattr(self.request, "user", None) else None,
+                direct_emails=[settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None,
+            )
+        except Exception:
+            # Patient booking must succeed even if notification delivery fails.
+            return
 
     def perform_update(self, serializer):
         appointment = serializer.save()
@@ -117,26 +112,28 @@ class ContactRequestViewSet(viewsets.ModelViewSet):
             target=contact,
             metadata={"status": contact.status},
         )
-        NotificationService.send(
-            title="New Contact Request",
-            message=(
-                f"Name: {contact.full_name}. Phone: {contact.phone_number}. "
-                f"Email: {contact.email or 'N/A'}. Subject: {contact.subject or 'N/A'}. "
-                f"Message: {contact.message}."
-            ),
-            event_code="contact.new_request",
-            notification_type=Notification.NotificationType.SYSTEM,
-            priority=Notification.Priority.HIGH,
-            ui_type=Notification.Type.INFO,
-            dedup_key=f"contact-{contact.id}",
-            related_module="contact",
-            reference_id=str(contact.id),
-            source_model="appointments.contactrequest",
-            source_id=contact.id,
-            created_by=self.request.user if getattr(self.request, "user", None) else None,
-            direct_emails=[settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None,
-        )
-        _attempt_immediate_email_dispatch()
+        try:
+            NotificationService.send(
+                title="New Contact Request",
+                message=(
+                    f"Name: {contact.full_name}. Phone: {contact.phone_number}. "
+                    f"Email: {contact.email or 'N/A'}. Subject: {contact.subject or 'N/A'}. "
+                    f"Message: {contact.message}."
+                ),
+                event_code="contact.new_request",
+                notification_type=Notification.NotificationType.SYSTEM,
+                priority=Notification.Priority.HIGH,
+                ui_type=Notification.Type.INFO,
+                dedup_key=f"contact-{contact.id}",
+                related_module="contact",
+                reference_id=str(contact.id),
+                source_model="appointments.contactrequest",
+                source_id=contact.id,
+                created_by=self.request.user if getattr(self.request, "user", None) else None,
+                direct_emails=[settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None,
+            )
+        except Exception:
+            return
 
     def perform_update(self, serializer):
         contact = serializer.save()
