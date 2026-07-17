@@ -1,6 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
 import environ
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -11,7 +12,6 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, ["127.0.0.1", "localhost"]),
     CORS_ALLOWED_ORIGINS=(list, ["http://localhost:5173", "http://127.0.0.1:5173"]),
     CSRF_TRUSTED_ORIGINS=(list, ["http://localhost:5173", "http://127.0.0.1:5173"]),
-    DATABASE_URL=(str, "postgres://postgres:postgres@127.0.0.1:5432/apexcareir_db"),
     TIME_ZONE=(str, "Africa/Nairobi"),
     FRONTEND_PASSWORD_RESET_URL=(str, "http://localhost:5173/admin1/reset-password"),
     FRONTEND_APP_URL=(str, "http://localhost:5173"),
@@ -100,7 +100,15 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-DATABASES = {"default": env.db("DATABASE_URL")}
+# Render / Postgres via DATABASE_URL (dj-database-url)
+DATABASES = {
+    "default": dj_database_url.config(
+        default="postgresql://postgres:postgres@127.0.0.1:5432/apexcareir_db",
+        conn_max_age=600,
+        conn_health_checks=True,
+        ssl_require=True,
+    )
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
