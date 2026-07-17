@@ -83,6 +83,18 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             metadata={"status": appointment.status},
         )
 
+    def perform_destroy(self, instance):
+        appointment_id = instance.id
+        patient_name = instance.full_name
+        instance.delete()
+        log_audit_event(
+            request=self.request,
+            action="appointment_delete",
+            module="appointments",
+            description=f"Deleted appointment #{appointment_id} ({patient_name}).",
+            metadata={"appointment_id": appointment_id},
+        )
+
 
 class ContactRequestViewSet(viewsets.ModelViewSet):
     queryset = ContactRequest.objects.all()
@@ -144,4 +156,16 @@ class ContactRequestViewSet(viewsets.ModelViewSet):
             description=f"Updated contact request #{contact.id} to {contact.status}.",
             target=contact,
             metadata={"status": contact.status},
+        )
+
+    def perform_destroy(self, instance):
+        contact_id = instance.id
+        contact_name = instance.full_name
+        instance.delete()
+        log_audit_event(
+            request=self.request,
+            action="contact_request_delete",
+            module="appointments",
+            description=f"Deleted contact request #{contact_id} ({contact_name}).",
+            metadata={"contact_request_id": contact_id},
         )

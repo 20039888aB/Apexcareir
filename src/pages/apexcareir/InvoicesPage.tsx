@@ -9,6 +9,7 @@ import { useServerClock } from '../../hooks/useServerClock';
 import { formatDateTime, formatIsoDate } from '../../utils/formatDate';
 import {
   createInvoice,
+  deleteInvoice,
   downloadInvoicePdf,
   emailInvoice,
   listInvoices,
@@ -25,6 +26,8 @@ import {
   type InvoiceStatus,
   type Customer,
 } from '../../services';
+import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
+import { useAuth } from '../../hooks/useAuth';
 
 type InvoicesTab = 'list' | 'create' | 'edit';
 
@@ -89,6 +92,8 @@ function invoiceToForm(invoice: Invoice) {
 }
 
 export default function InvoicesPage() {
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const canManage = isSuperAdmin || hasPermission('sales.sales_management');
   const queryClient = useQueryClient();
   const { localDate, monthStart } = useServerClock();
   const [activeTab, setActiveTab] = useState<InvoicesTab>('list');
@@ -245,6 +250,14 @@ export default function InvoicesPage() {
     }) => updateInvoiceStatus(invoiceId, { status, payment_status }),
     onSuccess: async () => {
       setActionMessage('Invoice status updated.');
+      await invalidateInvoices();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteInvoice,
+    onSuccess: async () => {
+      setActionMessage('Invoice deleted.');
       await invalidateInvoices();
     },
   });
@@ -848,6 +861,15 @@ export default function InvoicesPage() {
                         >
                           Cancel
                         </button>
+                        {canManage ? (
+                          <AdminConfirmButton
+                            label="Delete"
+                            confirmMessage={`Permanently delete invoice ${invoice.invoice_number}? This cannot be undone.`}
+                            onConfirm={() => deleteMutation.mutateAsync(invoice.id)}
+                            disabled={deleteMutation.isPending}
+                            className="!px-2 !py-0.5 text-[10px]"
+                          />
+                        ) : null}
                       </div>
                     </td>
                   </tr>

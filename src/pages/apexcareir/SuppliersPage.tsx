@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { createSupplier, listSupplierInvoices, listSuppliers, updateSupplier, type Supplier } from '../../services';
+import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
+import { useAuth } from '../../hooks/useAuth';
+import {
+  createSupplier,
+  deleteSupplier,
+  listSupplierInvoices,
+  listSuppliers,
+  updateSupplier,
+  type Supplier,
+} from '../../services';
 
 function formatCurrency(value: string | number) {
   const amount = Number(value || 0);
@@ -8,6 +17,8 @@ function formatCurrency(value: string | number) {
 }
 
 export default function SuppliersPage() {
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const canManage = isSuperAdmin || hasPermission('suppliers.supplier_management');
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
@@ -35,6 +46,15 @@ export default function SuppliersPage() {
     mutationFn: ({ id, payload }: { id: number; payload: Partial<Supplier> }) => updateSupplier(id, payload),
     onSuccess: async (supplier) => {
       setSelectedSupplier(supplier);
+      await queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    },
+  });
+
+  const deleteSupplierMutation = useMutation({
+    mutationFn: deleteSupplier,
+    onSuccess: async () => {
+      setSelectedSupplier(null);
+      setEditMode(false);
       await queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     },
   });
@@ -109,7 +129,7 @@ export default function SuppliersPage() {
               />
               Supplier active
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button type="submit">{editMode ? 'Save Supplier' : 'Add Supplier'}</button>
               {editMode && (
                 <button
@@ -123,6 +143,14 @@ export default function SuppliersPage() {
                   Cancel
                 </button>
               )}
+              {editMode && canManage && selectedSupplier ? (
+                <AdminConfirmButton
+                  label="Delete Supplier"
+                  confirmMessage={`Permanently delete supplier ${selectedSupplier.name}? This cannot be undone.`}
+                  onConfirm={() => deleteSupplierMutation.mutateAsync(selectedSupplier.id)}
+                  disabled={deleteSupplierMutation.isPending}
+                />
+              ) : null}
             </div>
           </form>
         </section>

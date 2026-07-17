@@ -68,6 +68,10 @@ export async function updateSupplier(supplierId: number, payload: Partial<Suppli
   return response.data;
 }
 
+export async function deleteSupplier(supplierId: number) {
+  await httpClient.delete(`/suppliers/${supplierId}/`);
+}
+
 export async function listSupplierInvoices(supplierId: number) {
   const response = await httpClient.get<{ count: number; results: SupplierInvoice[] }>(`/suppliers/${supplierId}/invoices/`);
   return response.data;

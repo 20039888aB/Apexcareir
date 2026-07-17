@@ -119,51 +119,67 @@ def _sales_report(start_date, end_date, search):
 
 
 def _inventory_report(start_date, end_date, search):
-    queryset = Product.objects.select_related("category", "supplier").all()
+    """Inventory activity for the selected period, driven by stock movements."""
+    from apps.inventory.models import StockMovement
+
+    movements = StockMovement.objects.select_related("product", "product__category", "product__supplier").filter(
+        event_date__gte=start_date,
+        event_date__lte=end_date,
+    )
     if search:
-        queryset = queryset.filter(Q(name__icontains=search) | Q(sku__icontains=search))
+        movements = movements.filter(
+            Q(product__name__icontains=search)
+            | Q(product__sku__icontains=search)
+            | Q(reference_label__icontains=search)
+            | Q(note__icontains=search)
+        )
 
     rows = list(
-        queryset.order_by("name").values(
-            "name",
-            "sku",
-            "category__name",
-            "supplier__name",
-            "current_stock",
-            "minimum_stock",
-            "purchase_price",
-            "selling_price",
-            "status",
+        movements.order_by("-event_date", "-created_at").values(
+            "event_date",
+            "product__name",
+            "product__sku",
+            "product__category__name",
+            "product__supplier__name",
+            "movement_type",
+            "quantity_change",
+            "reference_label",
+            "note",
+            "product__current_stock",
+            "product__minimum_stock",
         )
     )
-    inventory_value = _to_float(
-        queryset.aggregate(
-            total=Coalesce(
-                Sum(F("current_stock") * F("purchase_price"), output_field=DecimalField(max_digits=16, decimal_places=2)),
-                Value(0, output_field=DecimalField(max_digits=16, decimal_places=2)),
-            )
-        )["total"]
-    )
-    low_stock_count = queryset.filter(current_stock__lte=F("minimum_stock")).count()
+
+    received_qty = sum(row["quantity_change"] for row in rows if row["quantity_change"] > 0)
+    issued_qty = abs(sum(row["quantity_change"] for row in rows if row["quantity_change"] < 0))
+    products_touched = {row["product__sku"] for row in rows}
+    low_stock_count = Product.objects.filter(
+        current_stock__lte=F("minimum_stock"),
+        is_archived=False,
+    ).exclude(status=Product.Status.DISCONTINUED).count()
 
     return {
         "title": "Inventory Report",
         "filename": "inventory-report",
         "summary": {
             "records": len(rows),
-            "inventory_value": inventory_value,
+            "products_touched": len(products_touched),
+            "quantity_received": received_qty,
+            "quantity_issued": issued_qty,
             "low_stock_count": low_stock_count,
         },
         "columns": [
-            {"key": "name", "label": "Product"},
-            {"key": "sku", "label": "SKU"},
-            {"key": "category__name", "label": "Category"},
-            {"key": "supplier__name", "label": "Supplier"},
-            {"key": "current_stock", "label": "Current Stock"},
-            {"key": "minimum_stock", "label": "Minimum Stock"},
-            {"key": "purchase_price", "label": "Purchase Price"},
-            {"key": "selling_price", "label": "Selling Price"},
-            {"key": "status", "label": "Status"},
+            {"key": "event_date", "label": "Date"},
+            {"key": "product__name", "label": "Product"},
+            {"key": "product__sku", "label": "SKU"},
+            {"key": "product__category__name", "label": "Category"},
+            {"key": "product__supplier__name", "label": "Supplier"},
+            {"key": "movement_type", "label": "Movement"},
+            {"key": "quantity_change", "label": "Qty Change"},
+            {"key": "reference_label", "label": "Reference"},
+            {"key": "note", "label": "Note"},
+            {"key": "product__current_stock", "label": "Current Stock"},
+            {"key": "product__minimum_stock", "label": "Minimum Stock"},
         ],
         "results": rows,
     }

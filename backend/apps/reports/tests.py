@@ -39,6 +39,25 @@ class ReportsAPITests(APITestCase):
         self.assertEqual(response.data["start_date"], today)
         self.assertEqual(response.data["end_date"], today)
 
+    def test_sales_report_custom_range_filter(self):
+        today = timezone.localdate()
+        start = today.replace(day=1).isoformat()
+        end = today.isoformat()
+        response = self.client.get(f"/api/v1/reports/sales/?start_date={start}&end_date={end}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["start_date"], start)
+        self.assertEqual(response.data["end_date"], end)
+
+    def test_inventory_report_uses_date_range(self):
+        today = timezone.localdate().isoformat()
+        response = self.client.get(f"/api/v1/reports/inventory/?start_date={today}&end_date={today}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("quantity_received", response.data["summary"])
+        self.assertIn("quantity_issued", response.data["summary"])
+        column_keys = [column["key"] for column in response.data["columns"]]
+        self.assertIn("event_date", column_keys)
+        self.assertIn("movement_type", column_keys)
+
     def test_detailed_period_report_html_contains_sections(self):
         from apps.reports.services.detailed_email_report import build_detailed_period_report_html
 

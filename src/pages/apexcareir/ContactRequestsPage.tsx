@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
+import { EmptyState, PageErrorState, PageSkeleton } from '../../components/apexcareir/PageStates';
+import { useAuth } from '../../hooks/useAuth';
 import {
+  deleteContactRequest,
   listContactRequests,
   updateContactRequest,
   type ContactRequest,
   type ContactRequestStatus,
 } from '../../services';
-import { EmptyState, PageErrorState, PageSkeleton } from '../../components/apexcareir/PageStates';
 
 const statuses: { value: ContactRequestStatus; label: string }[] = [
   { value: 'new', label: 'New' },
@@ -16,6 +19,8 @@ const statuses: { value: ContactRequestStatus; label: string }[] = [
 ];
 
 export default function ContactRequestsPage() {
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const canManage = isSuperAdmin || hasPermission('appointments.appointment_management');
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const initialSearch = searchParams.get('search') ?? '';
@@ -39,6 +44,15 @@ export default function ContactRequestsPage() {
     onSuccess: async (updated) => {
       setSelected(updated);
       setAdminNotesDraft(updated.admin_notes ?? '');
+      await queryClient.invalidateQueries({ queryKey: ['contact-requests'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteContactRequest,
+    onSuccess: async () => {
+      setSelected(null);
+      setAdminNotesDraft('');
       await queryClient.invalidateQueries({ queryKey: ['contact-requests'] });
     },
   });
@@ -95,6 +109,7 @@ export default function ContactRequestsPage() {
                     <th className="py-2 pr-2">Subject</th>
                     <th className="py-2 pr-2">Status</th>
                     <th className="py-2 pr-2">Received</th>
+                    {canManage ? <th className="py-2 pr-2">Admin</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -113,6 +128,16 @@ export default function ContactRequestsPage() {
                       <td className="py-2 pr-2">{contact.subject || '-'}</td>
                       <td className="py-2 pr-2 capitalize">{contact.status}</td>
                       <td className="py-2 pr-2">{new Date(contact.created_at).toLocaleDateString()}</td>
+                      {canManage ? (
+                        <td className="py-2 pr-2" onClick={(event) => event.stopPropagation()}>
+                          <AdminConfirmButton
+                            label="Delete"
+                            confirmMessage={`Permanently delete contact request from ${contact.full_name}? This cannot be undone.`}
+                            onConfirm={() => deleteMutation.mutateAsync(contact.id)}
+                            disabled={deleteMutation.isPending}
+                          />
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -177,6 +202,16 @@ export default function ContactRequestsPage() {
               >
                 {updateMutation.isPending ? 'Saving...' : 'Save Contact Request Update'}
               </button>
+
+              {canManage ? (
+                <AdminConfirmButton
+                  label={deleteMutation.isPending ? 'Deleting...' : 'Delete Contact Request'}
+                  confirmMessage={`Permanently delete contact request from ${selected.full_name}? This cannot be undone.`}
+                  onConfirm={() => deleteMutation.mutateAsync(selected.id)}
+                  disabled={deleteMutation.isPending}
+                  className="w-full"
+                />
+              ) : null}
             </div>
           )}
         </section>

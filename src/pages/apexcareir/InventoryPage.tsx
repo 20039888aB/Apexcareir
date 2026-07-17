@@ -302,7 +302,7 @@ export default function InventoryPage() {
             <button className="apex-btn-soft" onClick={() => seedCatalogueMutation.mutate(false)} disabled={seedCatalogueMutation.isPending}>
               {seedCatalogueMutation.isPending ? 'Seeding catalogue...' : 'Seed Standard Catalogue Items'}
             </button>
-            {isSuperAdmin ? (
+            {canManageProducts ? (
               <AdminConfirmButton
                 label="Overwrite Catalogue"
                 confirmMessage="Overwrite existing catalogue items with standard definitions?"
@@ -382,7 +382,7 @@ export default function InventoryPage() {
                 <th className="py-2 pr-2">Minimum</th>
                 <th className="py-2 pr-2">Availability</th>
                 <th className="py-2 pr-2">Quick Update</th>
-                {isSuperAdmin ? <th className="py-2 pr-2">Admin</th> : null}
+                {canManageProducts ? <th className="py-2 pr-2">Admin</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -442,7 +442,7 @@ export default function InventoryPage() {
                         </button>
                       </div>
                     </td>
-                    {isSuperAdmin ? (
+                    {canManageProducts ? (
                       <td className="py-2 pr-2">
                         <div className="flex flex-wrap gap-1">
                           <AdminConfirmButton
@@ -495,7 +495,7 @@ export default function InventoryPage() {
             <textarea name="description" placeholder="Description" className="w-full" />
             <button disabled={createCategoryMutation.isPending}>Add Category</button>
           </form>
-          {isSuperAdmin && categories.length > 0 ? (
+          {canManageProducts && categories.length > 0 ? (
             <div className="mt-4 space-y-2">
               <p className="text-xs font-semibold text-slate-700">Manage Categories</p>
               {categories.map((category) => (

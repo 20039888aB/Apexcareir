@@ -100,6 +100,10 @@ export async function deleteSale(saleId: number) {
   await httpClient.delete(`/sales/${saleId}/`);
 }
 
+export async function deleteCustomer(customerId: number) {
+  await httpClient.delete(`/customers/${customerId}/`);
+}
+
 export async function listCustomerRecords(query?: string) {
   const response = await httpClient.get<{ count: number; results: CustomerRecord[] }>('/sales/customers/', {
     params: { q: query || undefined },

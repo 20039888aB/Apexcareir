@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.permissions import HasBusinessPermission
+from apps.audit_logs.services import log_audit_event
 from apps.inventory.models import StockReceipt
 
 from .models import Supplier
@@ -42,6 +43,18 @@ class SupplierViewSet(viewsets.ModelViewSet):
                 Sum(line_total), Value(0, output_field=DecimalField(max_digits=14, decimal_places=2))
             ),
             last_purchase_date=Max("stock_receipts__date_received", output_field=DateField()),
+        )
+
+    def perform_destroy(self, instance):
+        supplier_id = instance.id
+        supplier_name = instance.name
+        instance.delete()
+        log_audit_event(
+            request=self.request,
+            action="supplier_delete",
+            module="suppliers",
+            description=f"Deleted supplier {supplier_name}.",
+            metadata={"supplier_id": supplier_id},
         )
 
     @action(detail=True, methods=["get"], url_path="invoices")

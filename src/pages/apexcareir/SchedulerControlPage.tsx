@@ -21,7 +21,8 @@ function formatDateTime(value: string | null) {
 }
 
 export default function SchedulerControlPage() {
-  const { isSuperAdmin } = useAuth();
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const canManage = isSuperAdmin || hasPermission('notifications.notifications');
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedJobKey, setSelectedJobKey] = useState<string>(searchParams.get('job') ?? '');
@@ -198,7 +199,7 @@ export default function SchedulerControlPage() {
               <h3 className="text-sm font-semibold text-slate-900">Run History {selectedJob ? `- ${selectedJob.name}` : ''}</h3>
               <p className="mt-1 text-xs text-slate-600">Latest scheduler executions and runtime results.</p>
             </div>
-            {isSuperAdmin ? (
+            {canManage ? (
               <AdminConfirmButton
                 label={purgeLogsMutation.isPending ? 'Purging...' : 'Purge History'}
                 confirmMessage={
@@ -231,7 +232,7 @@ export default function SchedulerControlPage() {
                     >
                       {log.status}
                     </span>
-                    {isSuperAdmin ? (
+                    {canManage ? (
                       <AdminConfirmButton
                         label="Delete"
                         confirmMessage={`Delete run log #${log.id}?`}

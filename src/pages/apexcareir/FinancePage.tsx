@@ -233,7 +233,7 @@ export default function FinancePage() {
                     <th className="py-2 pr-2">Category</th>
                     <th className="py-2 pr-2">Amount</th>
                     <th className="py-2 pr-2">Method</th>
-                    {isSuperAdmin ? <th className="py-2 pr-2">Admin</th> : null}
+                    {canManageExpenses ? <th className="py-2 pr-2">Admin</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -245,7 +245,7 @@ export default function FinancePage() {
                       <td className="py-2 pr-2">{expense.category}</td>
                       <td className="py-2 pr-2">{formatCurrency(expense.amount)}</td>
                       <td className="py-2 pr-2 capitalize">{expense.payment_method}</td>
-                      {isSuperAdmin ? (
+                      {canManageExpenses ? (
                         <td className="py-2 pr-2">
                           <AdminConfirmButton
                             label="Delete"
@@ -306,7 +306,7 @@ export default function FinancePage() {
                     <th className="py-2 pr-2">Deductions</th>
                     <th className="py-2 pr-2">Net</th>
                     <th className="py-2 pr-2">Date</th>
-                    {isSuperAdmin ? <th className="py-2 pr-2">Admin</th> : null}
+                    {canManagePayroll ? <th className="py-2 pr-2">Admin</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -318,7 +318,7 @@ export default function FinancePage() {
                       <td className="py-2 pr-2">{formatCurrency(entry.deductions)}</td>
                       <td className="py-2 pr-2 font-semibold text-slate-800">{formatCurrency(entry.net_salary)}</td>
                       <td className="py-2 pr-2">{entry.payment_date}</td>
-                      {isSuperAdmin ? (
+                      {canManagePayroll ? (
                         <td className="py-2 pr-2">
                           <AdminConfirmButton
                             label="Delete"

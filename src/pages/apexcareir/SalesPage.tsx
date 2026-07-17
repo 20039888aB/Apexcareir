@@ -37,7 +37,8 @@ function formatCurrency(value: string | number) {
 }
 
 export default function SalesPage() {
-  const { isSuperAdmin } = useAuth();
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const canManage = isSuperAdmin || hasPermission('sales.sales_management');
   const { localDate } = useServerClock();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<SalesTab>('entry');
@@ -467,7 +468,7 @@ export default function SalesPage() {
                   <th className="py-2 pr-2">Payment</th>
                   <th className="py-2 pr-2">Date</th>
                   <th className="py-2 pr-2">Actions</th>
-                  {isSuperAdmin ? <th className="py-2 pr-2">Admin</th> : null}
+                  {canManage ? <th className="py-2 pr-2">Admin</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -531,7 +532,7 @@ export default function SalesPage() {
                         </button>
                       </div>
                     </td>
-                    {isSuperAdmin ? (
+                    {canManage ? (
                       <td className="py-2 pr-2">
                         <AdminConfirmButton
                           label="Delete"

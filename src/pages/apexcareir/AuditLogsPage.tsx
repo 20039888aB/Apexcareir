@@ -10,7 +10,8 @@ function formatDateTime(value: string) {
 }
 
 export default function AuditLogsPage() {
-  const { isSuperAdmin } = useAuth();
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const canManage = isSuperAdmin || hasPermission('audit_logs.audit_logs');
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [module, setModule] = useState('');
@@ -48,7 +49,7 @@ export default function AuditLogsPage() {
             <h2 className="text-lg font-semibold text-slate-900">Audit Logs</h2>
             <p className="mt-1 text-sm text-slate-600">Track critical system actions for security and accountability.</p>
           </div>
-          {isSuperAdmin ? (
+          {canManage ? (
             <AdminConfirmButton
               label={purgeMutation.isPending ? 'Purging...' : 'Purge All Logs'}
               confirmMessage="Permanently delete ALL audit logs matching the current filters?"
@@ -101,7 +102,7 @@ export default function AuditLogsPage() {
                       <th className="py-2 pr-2">Description</th>
                       <th className="py-2 pr-2">Target</th>
                       <th className="py-2 pr-2">IP</th>
-                      {isSuperAdmin ? <th className="py-2 pr-2">Admin</th> : null}
+                      {canManage ? <th className="py-2 pr-2">Admin</th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -114,7 +115,7 @@ export default function AuditLogsPage() {
                         <td className="py-2 pr-2">{item.description}</td>
                         <td className="py-2 pr-2">{item.target_repr || '-'}</td>
                         <td className="py-2 pr-2">{item.ip_address || '-'}</td>
-                        {isSuperAdmin ? (
+                        {canManage ? (
                           <td className="py-2 pr-2">
                             <AdminConfirmButton
                               label="Delete"

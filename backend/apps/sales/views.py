@@ -87,6 +87,27 @@ class CustomerViewSet(viewsets.ModelViewSet):
             user=self.request.user,
         )
 
+    def perform_destroy(self, instance):
+        customer_number = instance.customer_number
+        customer_name = instance.name
+        customer_id = instance.id
+        instance.delete()
+        log_audit_event(
+            request=self.request,
+            action="customer_delete",
+            module="sales",
+            description=f"Deleted customer {customer_name} ({customer_number}).",
+            metadata={"customer_id": customer_id},
+        )
+        log_transaction_event(
+            module="customers",
+            reference_number=customer_number,
+            reference_id=customer_id,
+            event_type="deleted",
+            description=f"Customer {customer_name} deleted.",
+            user=self.request.user,
+        )
+
     @action(detail=True, methods=["get"], url_path="invoices")
     def invoices(self, request, pk=None):
         customer = self.get_object()
@@ -130,7 +151,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     ]
     filterset_class = InvoiceFilterSet
     ordering_fields = ["invoice_date", "created_at", "grand_total"]
-    http_method_names = ["get", "post", "patch", "head", "options"]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_serializer_class(self):
         if self.action in {"create", "update", "partial_update"}:
@@ -166,6 +187,18 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         return self.partial_update(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        invoice_number = instance.invoice_number
+        invoice_id = instance.id
+        instance.delete()
+        log_audit_event(
+            request=self.request,
+            action="invoice_delete",
+            module="sales",
+            description=f"Deleted invoice {invoice_number}.",
+            metadata={"invoice_id": invoice_id},
+        )
 
     @action(detail=True, methods=["get"], url_path="pdf")
     def pdf(self, request, pk=None):

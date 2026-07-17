@@ -112,14 +112,13 @@ def build_detailed_period_report_html(*, period_label: str, start_date, end_date
 
     inventory_rows = [
         [
-            row.get("sku"),
-            row.get("name"),
-            row.get("category__name") or "-",
-            row.get("current_stock"),
-            row.get("minimum_stock"),
-            _money(row.get("purchase_price")),
-            _money(row.get("selling_price")),
-            row.get("status"),
+            row.get("event_date"),
+            row.get("product__sku"),
+            row.get("product__name"),
+            row.get("movement_type"),
+            row.get("quantity_change"),
+            row.get("product__current_stock"),
+            row.get("reference_label") or "-",
         ]
         for row in inventory["results"]
     ]
@@ -265,7 +264,9 @@ def build_detailed_period_report_html(*, period_label: str, start_date, end_date
                       ["Payroll", _money(snapshot["total_payroll"])],
                       [f"Net {snapshot['result_label']}", _money(snapshot["net_result"])],
                       ["Net Margin on Revenue", _percent(snapshot["net_margin_pct"])],
-                      ["Inventory Value (Remaining Stock Value)", _money(inventory["summary"].get("inventory_value"))],
+                      ["Inventory Movements in Period", str(inventory["summary"].get("records", 0))],
+                      ["Quantity Received (movements)", str(inventory["summary"].get("quantity_received", 0))],
+                      ["Quantity Issued (movements)", str(inventory["summary"].get("quantity_issued", 0))],
                   ],
               )
               + _result_banner("Gross Result", snapshot["gross_profit"], snapshot["profit_margin_pct"])
@@ -328,7 +329,8 @@ def build_detailed_period_report_html(*, period_label: str, start_date, end_date
                       ["Total Operating Expenses", _money(summary.get("total_expenses"))],
                       ["Total Payroll", _money(summary.get("total_payroll"))],
                       ["Net Business Result", _money(summary.get("net_business_result"))],
-                      ["Inventory Value (Current)", _money(inventory["summary"].get("inventory_value"))],
+                      ["Inventory Movements", str(inventory["summary"].get("records", 0))],
+                      ["Qty Received / Issued", f"{inventory['summary'].get('quantity_received', 0)} / {inventory['summary'].get('quantity_issued', 0)}"],
                       ["Low Stock Items", str(inventory["summary"].get("low_stock_count", 0))],
                       ["Sales Transactions", str(sales["summary"].get("records", 0))],
                       ["Stock Receipts in Period", str(len(receipt_rows))],
@@ -343,9 +345,9 @@ def build_detailed_period_report_html(*, period_label: str, start_date, end_date
               ),
           )}
           {_section(
-              "Inventory (Current Stock & Remaining Quantities)",
+              "Inventory Movements in Period",
               _table(
-                  ["SKU", "Product", "Category", "In Stock", "Min Stock", "Buy Price", "Sell Price", "Status"],
+                  ["Date", "SKU", "Product", "Movement", "Qty Change", "Current Stock", "Reference"],
                   inventory_rows,
               ),
           )}

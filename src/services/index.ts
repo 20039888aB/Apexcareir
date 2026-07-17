@@ -29,6 +29,7 @@ export { getDashboardOverview, type DashboardOverviewResponse } from './dashboar
 export { getCompanySettings, updateCompanySettings, type CompanySettings, type CompanySettingsInput } from './settingsService';
 export {
   createInvoice,
+  deleteInvoice,
   downloadInvoicePdf,
   downloadSaleInvoicePdf,
   emailInvoice,
@@ -83,13 +84,27 @@ export {
 } from './inventoryService';
 export {
   createSupplier,
+  deleteSupplier,
   listSupplierInvoices,
   listSuppliers,
   updateSupplier,
   type Supplier,
   type SupplierInvoice,
 } from './suppliersService';
-export { createSale, deleteSale, getCustomer, getCustomerInvoices, getCustomerPurchaseHistory, listCustomerRecords, listCustomers, listSales, type Customer, type CustomerRecord, type Sale } from './salesService';
+export {
+  createSale,
+  deleteCustomer,
+  deleteSale,
+  getCustomer,
+  getCustomerInvoices,
+  getCustomerPurchaseHistory,
+  listCustomerRecords,
+  listCustomers,
+  listSales,
+  type Customer,
+  type CustomerRecord,
+  type Sale,
+} from './salesService';
 export {
   createExpense,
   createPayroll,
@@ -135,6 +150,8 @@ export { deleteAuditLog, listAuditLogs, purgeAuditLogs, type AuditLogFilters, ty
 export {
   createAppointment,
   createContactRequest,
+  deleteAppointment,
+  deleteContactRequest,
   listContactRequests,
   listAppointments,
   updateContactRequest,

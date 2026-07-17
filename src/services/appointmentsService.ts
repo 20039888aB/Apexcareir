@@ -85,6 +85,10 @@ export async function updateAppointment(
   return response.data;
 }
 
+export async function deleteAppointment(id: number) {
+  await httpClient.delete(`/appointments/${id}/`);
+}
+
 export async function createContactRequest(payload: CreateContactRequestInput) {
   const response = await httpClient.post<ContactRequest>('/contact-requests/', payload);
   return response.data;
@@ -105,4 +109,8 @@ export async function updateContactRequest(
 ) {
   const response = await httpClient.patch<ContactRequest>(`/contact-requests/${id}/`, payload);
   return response.data;
+}
+
+export async function deleteContactRequest(id: number) {
+  await httpClient.delete(`/contact-requests/${id}/`);
 }

@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from apps.accounts.permissions import HasBusinessPermission, IsSuperAdmin
+from apps.accounts.permissions import HasBusinessPermission
 from apps.audit_logs.services import log_audit_event
 from apps.notifications.models import Notification
 from apps.notifications.services import NotificationService
@@ -129,8 +129,8 @@ class ProductViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at", "current_stock", "selling_price"]
 
     def get_permissions(self):
-        if self.action in {"destroy", "force_delete", "purge_history"}:
-            return [IsAuthenticated(), IsSuperAdmin()]
+        # Authenticated users with inventory permissions (and superadmins) may
+        # create/update/archive/delete products.
         self.required_permission = self.get_required_permission()
         return [permission() for permission in self.permission_classes]
 

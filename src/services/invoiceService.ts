@@ -242,6 +242,10 @@ export async function updateInvoiceStatus(
   return response.data;
 }
 
+export async function deleteInvoice(invoiceId: number) {
+  await httpClient.delete(`/invoices/${invoiceId}/`);
+}
+
 export type InvoicePaymentInput = {
   amount: number;
   payment_date?: string;

@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import AdminConfirmButton from '../../components/apexcareir/AdminConfirmButton';
+import { EmptyState, PageErrorState, PageSkeleton } from '../../components/apexcareir/PageStates';
+import { useAuth } from '../../hooks/useAuth';
 import {
+  deleteAppointment,
   listAppointments,
   updateAppointment,
   type Appointment,
   type AppointmentStatus,
 } from '../../services';
-import { EmptyState, PageErrorState, PageSkeleton } from '../../components/apexcareir/PageStates';
 
 const statuses: { value: AppointmentStatus; label: string }[] = [
   { value: 'pending', label: 'Pending' },
@@ -17,6 +20,8 @@ const statuses: { value: AppointmentStatus; label: string }[] = [
 ];
 
 export default function AppointmentsPage() {
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const canManage = isSuperAdmin || hasPermission('appointments.appointment_management');
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const initialSearch = searchParams.get('search') ?? '';
@@ -44,13 +49,24 @@ export default function AppointmentsPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteAppointment,
+    onSuccess: async () => {
+      setSelected(null);
+      setAdminNotesDraft('');
+      await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    },
+  });
+
   const selectedStatus = useMemo(() => selected?.status ?? 'pending', [selected]);
 
   return (
     <div className="apexcareir-ui space-y-4">
       <section className="apex-glass-panel p-4">
         <h2 className="text-sm font-semibold text-slate-900">Appointment Management</h2>
-        <p className="mt-1 text-xs text-slate-600">Review, update status, and manage patient booking requests.</p>
+        <p className="mt-1 text-xs text-slate-600">
+          Full admin control: review, update, and permanently delete patient booking requests.
+        </p>
 
         <div className="mt-3 grid gap-2 md:grid-cols-[1fr_220px]">
           <input
@@ -96,6 +112,7 @@ export default function AppointmentsPage() {
                     <th className="py-2 pr-2">Date</th>
                     <th className="py-2 pr-2">Status</th>
                     <th className="py-2 pr-2">Requested</th>
+                    {canManage ? <th className="py-2 pr-2">Admin</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -114,6 +131,16 @@ export default function AppointmentsPage() {
                       <td className="py-2 pr-2">{appointment.preferred_date ?? '-'}</td>
                       <td className="py-2 pr-2 capitalize">{appointment.status}</td>
                       <td className="py-2 pr-2">{new Date(appointment.created_at).toLocaleDateString()}</td>
+                      {canManage ? (
+                        <td className="py-2 pr-2" onClick={(event) => event.stopPropagation()}>
+                          <AdminConfirmButton
+                            label="Delete"
+                            confirmMessage={`Permanently delete appointment for ${appointment.full_name}? This cannot be undone.`}
+                            onConfirm={() => deleteMutation.mutateAsync(appointment.id)}
+                            disabled={deleteMutation.isPending}
+                          />
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -131,14 +158,30 @@ export default function AppointmentsPage() {
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-slate-900">Appointment #{selected.id}</h3>
               <div className="rounded-lg border border-slate-200 bg-white/85 p-3 text-xs space-y-1">
-                <p><span className="text-slate-500">Patient:</span> <strong>{selected.full_name}</strong></p>
-                <p><span className="text-slate-500">Phone:</span> {selected.phone_number}</p>
-                <p><span className="text-slate-500">Email:</span> {selected.email || '-'}</p>
-                <p><span className="text-slate-500">County:</span> {selected.county}</p>
-                <p><span className="text-slate-500">Procedure:</span> {selected.procedure_interest || '-'}</p>
-                <p><span className="text-slate-500">Preferred Date:</span> {selected.preferred_date || '-'}</p>
-                <p><span className="text-slate-500">Preferred Time:</span> {selected.preferred_time || '-'}</p>
-                <p><span className="text-slate-500">Message:</span> {selected.message || '-'}</p>
+                <p>
+                  <span className="text-slate-500">Patient:</span> <strong>{selected.full_name}</strong>
+                </p>
+                <p>
+                  <span className="text-slate-500">Phone:</span> {selected.phone_number}
+                </p>
+                <p>
+                  <span className="text-slate-500">Email:</span> {selected.email || '-'}
+                </p>
+                <p>
+                  <span className="text-slate-500">County:</span> {selected.county}
+                </p>
+                <p>
+                  <span className="text-slate-500">Procedure:</span> {selected.procedure_interest || '-'}
+                </p>
+                <p>
+                  <span className="text-slate-500">Preferred Date:</span> {selected.preferred_date || '-'}
+                </p>
+                <p>
+                  <span className="text-slate-500">Preferred Time:</span> {selected.preferred_time || '-'}
+                </p>
+                <p>
+                  <span className="text-slate-500">Message:</span> {selected.message || '-'}
+                </p>
               </div>
 
               <div>
@@ -181,6 +224,16 @@ export default function AppointmentsPage() {
               >
                 {updateMutation.isPending ? 'Saving...' : 'Save Appointment Update'}
               </button>
+
+              {canManage ? (
+                <AdminConfirmButton
+                  label={deleteMutation.isPending ? 'Deleting...' : 'Delete Appointment'}
+                  confirmMessage={`Permanently delete appointment for ${selected.full_name}? This cannot be undone.`}
+                  onConfirm={() => deleteMutation.mutateAsync(selected.id)}
+                  disabled={deleteMutation.isPending}
+                  className="w-full"
+                />
+              ) : null}
             </div>
           )}
         </section>
