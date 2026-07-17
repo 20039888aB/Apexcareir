@@ -1,16 +1,16 @@
-# Render Blueprint — wires frontend nginx → Django over private network.
-# https://render.com/docs/blueprint-spec
+# Render Blueprint — Free-tier friendly (no app code changes required)
 #
-# After connecting this repo as a Blueprint, services are named:
-#   apexcareir-api  (Django)
-#   apexcareir-web  (nginx + React)
-# BACKEND_HOST is set automatically to apexcareir-api:10000
-
-databases:
-  - name: apexcareir
-    plan: free
-    databaseName: apexcareir
-    user: apexcareir_user
+# Architecture:
+#   apexcareir-api  → Docker Django API (one free web service)
+#   apexcareir-web  → Static Site (React build on CDN — does not sleep like Docker web)
+#
+# Why this works better on free Render:
+#   - Free web services cannot reliably talk to each other over private network
+#   - Static site calls the public API URL (VITE_API_BASE_URL) over HTTPS
+#   - No nginx BACKEND_HOST / backend:8000 proxy needed
+#
+# Existing Postgres: do NOT recreate. In the API service dashboard, set
+# DATABASE_URL to your existing Internal Database URL.
 
 services:
   - type: web
@@ -26,22 +26,25 @@ services:
         value: production
       - key: DEBUG
         value: "False"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: apexcareir
-          property: connectionString
       - key: SECRET_KEY
         generateValue: true
+      # Paste your existing Internal Postgres URL in the dashboard if sync: false
+      - key: DATABASE_URL
+        sync: false
       - key: ALLOWED_HOSTS
-        value: ".onrender.com"
+        value: ".onrender.com,apexcareir-api.onrender.com"
       - key: CSRF_TRUSTED_ORIGINS
-        value: "https://apexcareir-web.onrender.com"
+        value: "https://apexcareir-web.onrender.com,https://apexcareir-api.onrender.com"
       - key: CORS_ALLOWED_ORIGINS
         value: "https://apexcareir-web.onrender.com"
       - key: FRONTEND_APP_URL
         value: "https://apexcareir-web.onrender.com"
       - key: FRONTEND_PASSWORD_RESET_URL
         value: "https://apexcareir-web.onrender.com/admin1/reset-password"
+      - key: API_PUBLIC_URL
+        value: "https://apexcareir-api.onrender.com"
+      - key: BACKEND_PUBLIC_URL
+        value: "https://apexcareir-api.onrender.com"
       - key: TIME_ZONE
         value: Africa/Nairobi
       - key: AI_USE_OLLAMA
@@ -49,12 +52,15 @@ services:
 
   - type: web
     name: apexcareir-web
-    runtime: docker
-    plan: free
-    region: oregon
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
     envVars:
-      # Django service name + Render private PORT (default 10000)
-      - key: BACKEND_HOST
-        value: apexcareir-api:10000
+      # Built into the React bundle — must be the public Django URL + /api/v1
+      - key: VITE_API_BASE_URL
+        value: https://apexcareir-api.onrender.com/api/v1
+    routes:
+      # SPA: React Router (admin1, book-appointment, etc.)
+      - type: rewrite
+        source: /*
+        destination: /index.html

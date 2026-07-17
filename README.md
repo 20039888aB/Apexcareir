@@ -111,27 +111,49 @@ docker compose restart backend scheduler
 
 ---
 
-## Render deployment
+## Render deployment (free-tier friendly)
 
-Deploy **two** web services (plus the Render Postgres you already linked):
+This project deploys on Render as:
 
-### 1. Backend (Django)
-- Root directory: `backend`
-- Dockerfile path: `./Dockerfile`
-- Set env vars from `backend/.env.production.example`
-- `DATABASE_URL` = Render **Internal** Postgres URL
-- `DJANGO_ENV=production`
-- Listen on Render’s `$PORT` (handled by the backend Dockerfile)
+| Service | Type | Role |
+|---------|------|------|
+| `apexcareir-api` | **Web service (Docker)** | Django API only |
+| `apexcareir-web` | **Static Site** | React frontend (CDN) |
+| Existing Postgres | **Postgres** | Your current Render database |
 
-### 2. Frontend (nginx + React)
-- Root directory: repo root
-- Dockerfile path: `./Dockerfile`
-- **Required env var:** `BACKEND_HOST=<your-django-service-name>:<port>`
-  - Example: if the Django service is named `apexcareir-api` and uses port `10000`:
-    `BACKEND_HOST=apexcareir-api:10000`
-- Do **not** use `backend:8000` on Render — that hostname only exists in Docker Compose
+**Do not** deploy the root nginx Docker image as the frontend on free Render. Free web services cannot reliably proxy to each other over the private network (`BACKEND_HOST` / `backend:8000` fails).
 
-The previous crash (`host not found in upstream "backend:8000"`) happened because nginx expected a Compose service named `backend`.
+Config file: `render.yaml` (Blueprint). **No application source changes are required** for this layout.
+
+### One-time setup (dashboard)
+
+1. **Keep your existing Postgres** — set `DATABASE_URL` on `apexcareir-api` to the **Internal** URL  
+   (example shape: `postgresql://USER:PASS@dpg-xxxxx-a/apexcareir`).
+2. **Delete or suspend** any old frontend service that used the root `Dockerfile` (nginx).
+3. Create / sync from Blueprint, or manually:
+   - **API:** Docker, context `backend`, Dockerfile `./Dockerfile`
+   - **Web:** Static Site, build `npm ci && npm run build`, publish `dist`
+4. On the **Static Site**, set build env:
+   ```text
+   VITE_API_BASE_URL=https://apexcareir-api.onrender.com/api/v1
+   ```
+   (Use your real API hostname if different.)
+5. On the **API**, set at least:
+   - `CORS_ALLOWED_ORIGINS=https://apexcareir-web.onrender.com`
+   - `CSRF_TRUSTED_ORIGINS=https://apexcareir-web.onrender.com`
+   - `ALLOWED_HOSTS=.onrender.com`
+   - `DJANGO_ENV=production`
+6. Add SPA rewrite on the static site: `/*` → `/index.html` (already in `render.yaml`).
+
+### After deploy
+
+- Open the **static site** URL (not the API URL) for the public site and `/admin1`.
+- First API request after idle may be slow (free web service sleep ~15 minutes).
+- Free Postgres expires ~30 days unless upgraded — export backups.
+
+### Local Docker Compose
+
+Unchanged. `docker compose` still uses nginx + `BACKEND_HOST=backend:8000` on your machine only.
 
 ---
 
