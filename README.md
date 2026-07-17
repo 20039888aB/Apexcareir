@@ -111,6 +111,30 @@ docker compose restart backend scheduler
 
 ---
 
+## Render deployment
+
+Deploy **two** web services (plus the Render Postgres you already linked):
+
+### 1. Backend (Django)
+- Root directory: `backend`
+- Dockerfile path: `./Dockerfile`
+- Set env vars from `backend/.env.production.example`
+- `DATABASE_URL` = Render **Internal** Postgres URL
+- `DJANGO_ENV=production`
+- Listen on Render’s `$PORT` (handled by the backend Dockerfile)
+
+### 2. Frontend (nginx + React)
+- Root directory: repo root
+- Dockerfile path: `./Dockerfile`
+- **Required env var:** `BACKEND_HOST=<your-django-service-name>:<port>`
+  - Example: if the Django service is named `apexcareir-api` and uses port `10000`:
+    `BACKEND_HOST=apexcareir-api:10000`
+- Do **not** use `backend:8000` on Render — that hostname only exists in Docker Compose
+
+The previous crash (`host not found in upstream "backend:8000"`) happened because nginx expected a Compose service named `backend`.
+
+---
+
 ## Manual VPS deployment (without Docker)
 
 1. Install PostgreSQL, Python 3.12, Node 20, nginx, gunicorn

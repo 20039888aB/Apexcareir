@@ -15,7 +15,13 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 
-COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
+# Docker Compose default. On Render set BACKEND_HOST to "<django-service-name>:$PORT"
+ENV BACKEND_HOST=backend:8000
+# Only substitute BACKEND_HOST — keep nginx vars like $host intact
+ENV NGINX_ENVSUBST_FILTER=BACKEND_HOST
+
+# Official nginx image runs envsubst on /etc/nginx/templates/*.template
+COPY deploy/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=frontend-build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
