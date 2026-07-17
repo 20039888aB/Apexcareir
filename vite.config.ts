@@ -6,26 +6,18 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
+        // Keep React with every package that calls React.forwardRef / createElement
+        // at module init. Splitting lucide/framer into a separate "vendor" chunk
+        // caused a blank page in production: React was still undefined when
+        // vendor-*.js evaluated (Cannot read properties of undefined (reading 'forwardRef')).
         manualChunks(id) {
           if (!id.includes('node_modules')) {
             return undefined;
           }
-          if (id.includes('recharts') || id.includes('d3-')) {
+          if (id.includes('recharts') || id.includes('/d3-')) {
             return 'charts';
           }
-          if (id.includes('framer-motion')) {
-            return 'motion';
-          }
-          if (id.includes('@tanstack')) {
-            return 'query';
-          }
-          if (id.includes('react-router') || id.includes('@remix-run')) {
-            return 'router';
-          }
-          if (id.includes('react-dom') || id.includes('/react/')) {
-            return 'react-vendor';
-          }
-          return 'vendor';
+          return undefined;
         },
       },
     },
