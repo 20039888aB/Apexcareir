@@ -144,6 +144,7 @@ Config file: `render.yaml` (Blueprint). **No application source changes are requ
    - `ALLOWED_HOSTS=.onrender.com`
    - `DJANGO_ENV=production`
 6. Add SPA rewrite on the static site: `/*` → `/index.html` (already in `render.yaml`).
+7. Backend already uses **WhiteNoise** + `collectstatic` in the Docker entrypoint so Django admin CSS/JS is served by Gunicorn without nginx.
 
 ### After deploy
 

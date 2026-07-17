@@ -28,6 +28,18 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 
+# Serve collected static files (Django admin CSS/JS, etc.) via Gunicorn on Render.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+WHITENOISE_USE_FINDERS = False
+WHITENOISE_AUTOREFRESH = False
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
