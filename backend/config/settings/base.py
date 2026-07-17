@@ -100,13 +100,18 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-# Render / Postgres via DATABASE_URL (dj-database-url)
+# DATABASE_URL via dj-database-url (SSL only for Render / when requested)
+_database_url = env.str(
+    "DATABASE_URL",
+    default="postgresql://postgres:postgres@127.0.0.1:5432/apexcareir_db",
+)
+_ssl_require = "render.com" in _database_url or "sslmode=require" in _database_url
 DATABASES = {
-    "default": dj_database_url.config(
-        default="postgresql://postgres:postgres@127.0.0.1:5432/apexcareir_db",
+    "default": dj_database_url.parse(
+        _database_url,
         conn_max_age=600,
         conn_health_checks=True,
-        ssl_require=True,
+        ssl_require=_ssl_require,
     )
 }
 
