@@ -113,38 +113,98 @@ docker compose restart backend scheduler
 
 ## Render deployment (free-tier friendly)
 
-This project deploys on Render as:
+### Why “frontend + DB” is not enough
+
+```text
+Browser  →  Frontend (React)  →  Django API  →  Postgres
+```
+
+- Postgres only talks to **Django**.
+- The React site only talks to **Django** (`/api/v1/...`).
+- Putting `DATABASE_URL` on the frontend does **nothing**.
+
+If your Render list looks like this:
+
+| Service | Type | Meaning |
+|---------|------|---------|
+| Apexcareir | PostgreSQL | Database only |
+| Apexcareir | Docker (root `Dockerfile`) | Frontend/nginx only — **not** Django |
+
+…then the DB is **not** connected to the website yet. You still need a **third** service: Django API.
+
+### Target layout
 
 | Service | Type | Role |
 |---------|------|------|
-| `apexcareir-api` | **Web service (Docker)** | Django API only |
-| `apexcareir-web` | **Static Site** | React frontend (CDN) |
-| Existing Postgres | **Postgres** | Your current Render database |
+| `Apexcareir` | **Postgres** | Keep this (your existing DB) |
+| `apexcareir-api` | **Web service (Docker)** | Django — set `DATABASE_URL` here |
+| Frontend | **Static Site** (recommended) | React — set `VITE_API_BASE_URL` here |
 
-**Do not** deploy the root nginx Docker image as the frontend on free Render. Free web services cannot reliably proxy to each other over the private network (`BACKEND_HOST` / `backend:8000` fails).
+**Do not** use the root nginx Docker image as the only web service on free Render. It proxies to `BACKEND_HOST`, which usually fails on the free plan (502 on `/api/`).
 
-Config file: `render.yaml` (Blueprint). **No application source changes are required** for this layout.
+Config file: `render.yaml`.
 
-### One-time setup (dashboard)
+### Dashboard setup (do this in order)
 
-1. **Keep your existing Postgres** — set `DATABASE_URL` on `apexcareir-api` to the **Internal** URL  
-   (example shape: `postgresql://USER:PASS@dpg-xxxxx-a/apexcareir`).
-2. **Delete or suspend** any old frontend service that used the root `Dockerfile` (nginx).
-3. Create / sync from Blueprint, or manually:
-   - **API:** Docker, context `backend`, Dockerfile `./Dockerfile`
-   - **Web:** Static Site, build `npm ci && npm run build`, publish `dist`
-4. On the **Static Site**, set build env:
-   ```text
-   VITE_API_BASE_URL=https://apexcareir-api.onrender.com/api/v1
-   ```
-   (Use your real API hostname if different.)
-5. On the **API**, set at least:
-   - `CORS_ALLOWED_ORIGINS=https://apexcareir-web.onrender.com`
-   - `CSRF_TRUSTED_ORIGINS=https://apexcareir-web.onrender.com`
-   - `ALLOWED_HOSTS=.onrender.com`
-   - `DJANGO_ENV=production`
-6. Add SPA rewrite on the static site: `/*` → `/index.html` (already in `render.yaml`).
-7. Backend already uses **WhiteNoise** + `collectstatic` in the Docker entrypoint so Django admin CSS/JS is served by Gunicorn without nginx.
+#### 1) Keep Postgres
+
+Leave your existing Postgres (`Apexcareir`) as-is. Copy **Internal Database URL** from Connect.
+
+#### 2) Create Django API (`apexcareir-api`)
+
+1. **New → Web Service** → same GitHub repo.
+2. Runtime: **Docker**
+3. Dockerfile path: `backend/Dockerfile`
+4. Docker build context: `backend` (if asked)
+5. Region: **Oregon** (same as DB)
+6. Health check path: `/api/v1/health/`
+7. Environment variables:
+
+| Key | Value |
+|-----|--------|
+| `DATABASE_URL` | Internal Database URL from Postgres |
+| `DJANGO_ENV` | `production` |
+| `DEBUG` | `False` |
+| `SECRET_KEY` | long random string (or Generate) |
+| `ALLOWED_HOSTS` | `.onrender.com` |
+| `CORS_ALLOWED_ORIGINS` | `https://apexcareir.onrender.com` |
+| `CSRF_TRUSTED_ORIGINS` | `https://apexcareir.onrender.com` |
+| `FRONTEND_APP_URL` | `https://apexcareir.onrender.com` |
+| `FRONTEND_PASSWORD_RESET_URL` | `https://apexcareir.onrender.com/admin1/reset-password` |
+| `AI_USE_OLLAMA` | `False` |
+
+8. Deploy. Open the URL on the service page, then visit:  
+   `https://YOUR-API-NAME.onrender.com/api/v1/health/`  
+   It must return OK. That URL is your **API service URL**.
+
+#### 3) Point the frontend at the API
+
+**Option A — Static Site (best on free Render)**
+
+1. **New → Static Site** → same repo.
+2. Build: `npm ci && npm run build`
+3. Publish directory: `dist`
+4. Build env: `VITE_API_BASE_URL=https://YOUR-API-NAME.onrender.com/api/v1`
+5. Rewrite: `/*` → `/index.html`
+6. After it works, you can suspend the old nginx Docker frontend.
+
+**Option B — Keep current Docker frontend (`Apexcareir`)**
+
+Only works reliably if private networking works. Set:
+
+| Key | Value |
+|-----|--------|
+| `BACKEND_HOST` | `apexcareir-api:PORT` (from API service; often fails on free) |
+
+Prefer Option A.
+
+#### 4) Sync check
+
+| Test | Expected |
+|------|----------|
+| API health URL | 200 OK |
+| Site login at `/admin1` | Network shows `…/api/v1/auth/login/` → 200 |
+| No 502 on `/api/` | Backend reachable |
 
 ### After deploy
 
