@@ -10,7 +10,9 @@ COPY postcss.config.js tailwind.config.js ./
 COPY public ./public
 COPY src ./src
 
-ARG VITE_API_BASE_URL=/api/v1
+# Call the public Django API over HTTPS (required on Render free — private
+# nginx→BACKEND_HOST proxy returns 502). Override for local Compose with /api/v1.
+ARG VITE_API_BASE_URL=https://apexcareir-api.onrender.com/api/v1
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 RUN npm run build

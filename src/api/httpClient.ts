@@ -5,7 +5,8 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/a
 
 export const httpClient = axios.create({
   baseURL: apiBaseUrl,
-  timeout: 20000,
+  // Free Render API can take ~30–50s to wake from sleep
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
