@@ -33,5 +33,12 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
+# Render free tier has no separate worker — run the email/report scheduler
+# alongside gunicorn so queued mail and scheduled reports still flush.
+if [ "${ENABLE_EMBEDDED_SCHEDULER:-True}" != "False" ] && [ "${ENABLE_EMBEDDED_SCHEDULER:-True}" != "false" ]; then
+  echo "Starting embedded notification scheduler..."
+  python manage.py run_scheduler --poll-seconds "${SCHEDULER_POLL_SECONDS:-60}" &
+fi
+
 echo "Starting application..."
 exec "$@"

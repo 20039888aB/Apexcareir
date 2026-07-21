@@ -172,6 +172,16 @@ Leave your existing Postgres (`Apexcareir`) as-is. Copy **Internal Database URL*
 | `FRONTEND_APP_URL` | `https://apexcareir.onrender.com` |
 | `FRONTEND_PASSWORD_RESET_URL` | `https://apexcareir.onrender.com/admin1/reset-password` |
 | `AI_USE_OLLAMA` | `False` |
+| `DEFAULT_FROM_EMAIL` | your Gmail address (e.g. `apexcareir@gmail.com`) |
+| `EMAIL_HOST` | `smtp.gmail.com` |
+| `EMAIL_PORT` | `587` |
+| `EMAIL_HOST_USER` | same Gmail address |
+| `EMAIL_HOST_PASSWORD` | Gmail **App Password** (not your normal password) |
+| `EMAIL_USE_TLS` | `True` |
+
+Without `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD`, notifications stay queued/failed and invoices cannot email PDFs. See `backend/EMAIL_SETUP.md`.
+
+The API container starts an **embedded email scheduler** so queued mail is processed even without a separate Render worker.
 
 8. Deploy. Open the URL on the service page, then visit:  
    `https://YOUR-API-NAME.onrender.com/api/v1/health/`  

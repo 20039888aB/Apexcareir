@@ -45,6 +45,23 @@ services:
         value: Africa/Nairobi
       - key: AI_USE_OLLAMA
         value: "False"
+      # Email / SMTP — set EMAIL_HOST_PASSWORD in the Render dashboard (Gmail App Password)
+      - key: DEFAULT_FROM_EMAIL
+        value: apexcareir@gmail.com
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_HOST_USER
+        value: apexcareir@gmail.com
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_TIMEOUT
+        value: "20"
+      - key: ENABLE_EMBEDDED_SCHEDULER
+        value: "True"
 
   - type: web
     name: apexcareir-web

@@ -29,12 +29,26 @@ From the admin app:
 
 Backend tests mock SMTP for invoice email; a manual send confirms real delivery.
 
+## Render / hosted deployments
+
+Emails fail on Render for two common reasons:
+
+1. **Missing SMTP env vars** on `apexcareir-api` (`EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`).
+2. **No queue processor** — notifications are queued in the DB and only leave after `process_notification_emails` / the scheduler runs.
+
+This project now:
+- flushes the email queue immediately after creating notification emails
+- starts `run_scheduler` inside the API container (`ENABLE_EMBEDDED_SCHEDULER=True`)
+
+Still required: set the Gmail App Password as `EMAIL_HOST_PASSWORD` in the Render dashboard for `apexcareir-api`.
+
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
 | `SMTPAuthenticationError` | Use an app password, not your normal Gmail password |
 | Email not received | Check spam; confirm `DEFAULT_FROM_EMAIL` matches `EMAIL_HOST_USER` for Gmail |
+| Logs stuck on `queued` | Scheduler not running / SMTP not configured — check Render env + EmailNotificationLog |
 | Connection timeout | Allow outbound port 587 on the server firewall |
 
 ## Other providers

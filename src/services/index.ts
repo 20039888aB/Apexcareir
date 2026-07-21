@@ -25,7 +25,12 @@ export {
   type UserCreateInput,
   type UserUpdateInput,
 } from './authService';
-export { getDashboardOverview, type DashboardOverviewResponse } from './dashboardService';
+export {
+  getDashboardOverview,
+  type DashboardOverviewParams,
+  type DashboardOverviewResponse,
+  type DashboardPeriod,
+} from './dashboardService';
 export { getCompanySettings, updateCompanySettings, type CompanySettings, type CompanySettingsInput } from './settingsService';
 export {
   createInvoice,
@@ -62,6 +67,7 @@ export {
   deleteStockAdjustment,
   deleteStockReceipt,
   deleteStockTransfer,
+  ensureProduct,
   forceDeleteProduct,
   listLowStockProducts,
   purgeProductHistory,
@@ -75,6 +81,7 @@ export {
   listStockTransfers,
   unarchiveProduct,
   updateProduct,
+  updateStockReceipt,
   type Product,
   type ProductCategory,
   type StockMovement,

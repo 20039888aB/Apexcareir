@@ -3,6 +3,8 @@ from django.db.models import F
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -21,7 +23,7 @@ from .filters import (
 from apps.common.services.numbering import allocate_document_number
 from .models import Product, ProductCategory, StockAdjustment, StockMovement, StockReceipt, StockReceiptBatch, StockTransfer
 from .services.catalogue_seed import seed_catalogue_items
-from .services.product_admin import force_delete_product, purge_product_history
+from .services.product_admin import force_delete_product, purge_product_history, resolve_product_for_receipt
 from .serializers import (
     ProductCategorySerializer,
     ProductSerializer,
@@ -30,6 +32,13 @@ from .serializers import (
     StockReceiptSerializer,
     StockTransferSerializer,
 )
+
+
+class InventoryPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 1000
+
 
 def _notify_low_stock_if_needed(*, request, product):
     product.refresh_from_db(fields=["current_stock", "minimum_stock", "name", "sku"])
@@ -119,6 +128,7 @@ class ProductViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
     queryset = Product.objects.select_related("category", "supplier").all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated, HasBusinessPermission]
+    pagination_class = InventoryPagination
     permission_by_action = {
         "default": "inventory.product_management",
         "low_stock": "inventory.low_stock_alerts",
@@ -129,9 +139,15 @@ class ProductViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
     ordering_fields = ["name", "created_at", "current_stock", "selling_price"]
 
     def get_permissions(self):
-        # Authenticated users with inventory permissions (and superadmins) may
-        # create/update/archive/delete products.
-        self.required_permission = self.get_required_permission()
+        if self.action == "ensure":
+            self.required_permission = None
+            self.required_any_permissions = [
+                "inventory.product_management",
+                "inventory.stock_receiving",
+            ]
+        else:
+            self.required_any_permissions = None
+            self.required_permission = self.get_required_permission()
         return [permission() for permission in self.permission_classes]
 
     def get_queryset(self):
@@ -140,6 +156,38 @@ class ProductViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
         if not include_archived:
             queryset = queryset.filter(is_archived=False)
         return queryset
+
+    @action(detail=False, methods=["post"], url_path="ensure")
+    def ensure(self, request):
+        """Create a product from a typed name if it does not already exist."""
+        name = str(request.data.get("name") or "").strip()
+        if not name:
+            raise ValidationError({"name": "Product name is required."})
+        try:
+            product, created = resolve_product_for_receipt(
+                product_name=name,
+                purchase_price=request.data.get("purchase_price") or 0,
+                supplier_id=request.data.get("supplier"),
+            )
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        if created:
+            log_audit_event(
+                request=request,
+                action="product_ensure_create",
+                module="inventory",
+                description=f"Auto-saved product {product.name} ({product.sku}) from typed name.",
+                target=product,
+            )
+
+        return Response(
+            {
+                **ProductSerializer(product).data,
+                "created": created,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
     def perform_create(self, serializer):
         product = serializer.save()
@@ -274,9 +322,10 @@ class ProductViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
 
 
 class StockReceiptViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
-    queryset = StockReceipt.objects.select_related("product", "supplier", "received_by").all()
+    queryset = StockReceipt.objects.select_related("product", "supplier", "received_by", "receipt_batch").all()
     serializer_class = StockReceiptSerializer
     permission_classes = [IsAuthenticated, HasBusinessPermission]
+    pagination_class = InventoryPagination
     permission_by_action = {"default": "inventory.stock_receiving"}
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = StockReceiptFilterSet
@@ -310,18 +359,53 @@ class StockReceiptViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
                 received_by=request.user if request.user.is_authenticated else None,
                 notes=notes,
             )
-            created_records = []
+
+            # Resolve products first, then merge duplicate lines for the same product.
+            resolved_lines = []
             for item in items:
+                try:
+                    product, _created = resolve_product_for_receipt(
+                        product_id=item.get("product"),
+                        product_name=str(item.get("product_name") or "").strip(),
+                        purchase_price=item.get("purchase_price") or 0,
+                        supplier_id=supplier_id,
+                    )
+                except ValueError as exc:
+                    raise ValidationError({"detail": str(exc)}) from exc
+                resolved_lines.append((product, item))
+
+            merged_by_product = {}
+            for product, item in resolved_lines:
+                current = merged_by_product.get(product.id)
+                quantity = int(item.get("quantity") or 0)
+                purchase_price = item.get("purchase_price") or 0
+                if not current:
+                    merged_by_product[product.id] = {
+                        "product": product,
+                        "quantity": quantity,
+                        "purchase_price": purchase_price,
+                        "batch_number": item.get("batch_number") or "",
+                        "notes": item.get("notes") or notes,
+                    }
+                    continue
+                current["quantity"] += quantity
+                # Keep the latest typed buying price when lines are merged.
+                current["purchase_price"] = purchase_price
+                if item.get("batch_number"):
+                    current["batch_number"] = item.get("batch_number")
+
+            created_records = []
+            for line in merged_by_product.values():
                 serializer = self.get_serializer(
                     data={
                         "supplier": supplier_id,
                         "invoice_number": invoice_number,
-                        "product": item.get("product"),
-                        "quantity": item.get("quantity"),
-                        "purchase_price": item.get("purchase_price"),
-                        "batch_number": item.get("batch_number") or "",
+                        "product": line["product"].id,
+                        "quantity": line["quantity"],
+                        "purchase_price": line["purchase_price"],
+                        "batch_number": line["batch_number"],
                         "date_received": date_received,
-                        "notes": item.get("notes") or notes,
+                        "notes": line["notes"],
                         "receipt_batch": batch.id,
                     }
                 )
@@ -366,6 +450,33 @@ class StockReceiptViewSet(PermissionByActionMixin, viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    def perform_update(self, serializer):
+        receipt = serializer.save()
+        log_audit_event(
+            request=self.request,
+            action="stock_receipt_update",
+            module="inventory",
+            description=f"Updated stock receipt {receipt.invoice_number} for {receipt.product.name}.",
+            target=receipt,
+            metadata={"quantity": receipt.quantity, "purchase_price": str(receipt.purchase_price)},
+        )
+        _notify_low_stock_if_needed(request=self.request, product=receipt.product)
+
+    def perform_destroy(self, instance):
+        invoice_number = instance.invoice_number
+        product = instance.product
+        product_name = product.name
+        quantity = instance.quantity
+        instance.delete()
+        log_audit_event(
+            request=self.request,
+            action="stock_receipt_delete",
+            module="inventory",
+            description=f"Deleted stock receipt {invoice_number} for {product_name} (qty {quantity}).",
+            metadata={"invoice_number": invoice_number, "product": product_name, "quantity": quantity},
+        )
+        _notify_low_stock_if_needed(request=self.request, product=product)
 
     def perform_create(self, serializer):
         receipt = serializer.save()

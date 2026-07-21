@@ -12,5 +12,8 @@ class DashboardOverviewAPIView(APIView):
     required_permission = "dashboard.dashboard"
 
     def get(self, request):
-        payload = build_dashboard_overview()
+        payload = build_dashboard_overview(
+            as_of_date=request.query_params.get("date"),
+            month=request.query_params.get("month"),
+        )
         return Response(payload)

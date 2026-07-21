@@ -138,6 +138,29 @@ class StockReceipt(models.Model):
                     event_date=self.date_received,
                     note=self.notes,
                 )
+            else:
+                updated = StockMovement.objects.filter(
+                    reference_model="inventory.stockreceipt",
+                    reference_id=str(self.pk),
+                    movement_type=StockMovement.Type.RECEIVED,
+                ).update(
+                    quantity_change=self.quantity,
+                    reference_label=self.invoice_number,
+                    event_date=self.date_received,
+                    note=self.notes,
+                    product=self.product,
+                )
+                if not updated:
+                    StockMovement.objects.create(
+                        product=self.product,
+                        movement_type=StockMovement.Type.RECEIVED,
+                        quantity_change=self.quantity,
+                        reference_model="inventory.stockreceipt",
+                        reference_id=str(self.pk),
+                        reference_label=self.invoice_number,
+                        event_date=self.date_received,
+                        note=self.notes,
+                    )
 
     def delete(self, *args, **kwargs):
         with transaction.atomic():

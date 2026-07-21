@@ -128,11 +128,28 @@ type ProductListFilters = {
   category?: number;
   low_stock?: boolean;
   include_archived?: boolean;
+  page_size?: number;
 };
 
 export async function listProducts(filters: ProductListFilters = {}) {
-  const response = await httpClient.get<PaginatedResponse<Product> | Product[]>('/inventory/products/', { params: filters });
+  const { include_archived, ...rest } = filters;
+  const response = await httpClient.get<PaginatedResponse<Product> | Product[]>('/inventory/products/', {
+    params: {
+      page_size: 500,
+      ...rest,
+      ...(include_archived ? { include_archived: 'true' } : {}),
+    },
+  });
   return extractResults(response.data);
+}
+
+export async function ensureProduct(payload: {
+  name: string;
+  purchase_price?: number;
+  supplier?: number | null;
+}) {
+  const response = await httpClient.post<Product & { created: boolean }>('/inventory/products/ensure/', payload);
+  return response.data;
 }
 
 export async function createProduct(payload: {
@@ -215,6 +232,23 @@ export async function deleteStockReceipt(receiptId: number) {
   await httpClient.delete(`/inventory/stock-receipts/${receiptId}/`);
 }
 
+export async function updateStockReceipt(
+  receiptId: number,
+  payload: {
+    quantity?: number;
+    purchase_price?: number;
+    batch_number?: string;
+    notes?: string;
+    invoice_number?: string;
+    date_received?: string;
+    supplier?: number | null;
+    product?: number;
+  },
+) {
+  const response = await httpClient.patch<StockReceipt>(`/inventory/stock-receipts/${receiptId}/`, payload);
+  return response.data;
+}
+
 export async function deleteStockTransfer(transferId: number) {
   await httpClient.delete(`/inventory/stock-transfers/${transferId}/`);
 }
@@ -224,7 +258,9 @@ export async function deleteStockAdjustment(adjustmentId: number) {
 }
 
 export async function listStockReceipts() {
-  const response = await httpClient.get<PaginatedResponse<StockReceipt> | StockReceipt[]>('/inventory/stock-receipts/');
+  const response = await httpClient.get<PaginatedResponse<StockReceipt> | StockReceipt[]>('/inventory/stock-receipts/', {
+    params: { page_size: 200 },
+  });
   return extractResults(response.data);
 }
 
@@ -249,7 +285,8 @@ export async function createBulkStockReceipt(payload: {
   additional_expenses?: number;
   notes?: string;
   items: Array<{
-    product: number;
+    product?: number;
+    product_name?: string;
     quantity: number;
     purchase_price: number;
     batch_number?: string;

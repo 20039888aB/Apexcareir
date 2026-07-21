@@ -12,20 +12,24 @@ import {
   createStockAdjustment,
   createStockTransfer,
   deleteProductCategory,
+  deleteStockReceipt,
+  deleteStockTransfer,
+  ensureProduct,
   forceDeleteProduct,
   listLowStockProducts,
+  purgeProductHistory,
+  seedMedicalCatalogue,
   listProductCategories,
+  seedDefaultProductCategories,
   listProductHistory,
   listProducts,
-  purgeProductHistory,
-  seedDefaultProductCategories,
-  seedMedicalCatalogue,
   listStockAdjustments,
   listStockReceipts,
   listStockTransfers,
   listSuppliers,
   unarchiveProduct,
   updateProduct,
+  updateStockReceipt,
   type Product,
 } from '../../services';
 import { useAuth } from '../../hooks';
@@ -44,7 +48,7 @@ const tabs: { id: InventoryTab; label: string }[] = [
 ];
 
 type ReceivingLine = {
-  product: string;
+  productName: string;
   quantity: string;
   purchase_price: string;
   batch_number: string;
@@ -67,9 +71,14 @@ export default function InventoryPage() {
   const [editProductId, setEditProductId] = useState<string>('');
   const [historyProductId, setHistoryProductId] = useState<string>('');
   const [receivingLines, setReceivingLines] = useState<ReceivingLine[]>([
-    { product: '', quantity: '', purchase_price: '', batch_number: '' },
+    { productName: '', quantity: '', purchase_price: '', batch_number: '' },
   ]);
+  const [receivingProductSearchOpen, setReceivingProductSearchOpen] = useState<number | null>(null);
+  const [receivingCatalogSearch, setReceivingCatalogSearch] = useState('');
   const [receivingAdditionalExpenses, setReceivingAdditionalExpenses] = useState('');
+  const [editingReceiptId, setEditingReceiptId] = useState<number | null>(null);
+  const [editReceiptQty, setEditReceiptQty] = useState('');
+  const [editReceiptPrice, setEditReceiptPrice] = useState('');
   const [usdToKesRate, setUsdToKesRate] = useState(getStoredUsdToKesRate);
   const [newProductPurchaseKes, setNewProductPurchaseKes] = useState('');
   const [newProductSellingKes, setNewProductSellingKes] = useState('');
@@ -77,7 +86,7 @@ export default function InventoryPage() {
   const [editProductSellingKes, setEditProductSellingKes] = useState('');
 
   const receivingSummary = useMemo(() => {
-    const validLines = receivingLines.filter((line) => line.product && Number(line.quantity) > 0);
+    const validLines = receivingLines.filter((line) => line.productName.trim() && Number(line.quantity) > 0);
     const totalQuantity = validLines.reduce((sum, line) => sum + Number(line.quantity), 0);
     const goodsTotal = validLines.reduce(
       (sum, line) => sum + Number(line.quantity) * Number(line.purchase_price || 0),
@@ -129,6 +138,11 @@ export default function InventoryPage() {
     queryFn: listStockReceipts,
     enabled: canReceiveStock,
   });
+  const receivingProductsQuery = useQuery({
+    queryKey: ['inventory', 'receiving-products'],
+    queryFn: () => listProducts({ include_archived: false }),
+    enabled: canReceiveStock,
+  });
   const transfersQuery = useQuery({
     queryKey: ['inventory', 'stock-transfers'],
     queryFn: listStockTransfers,
@@ -177,20 +191,56 @@ export default function InventoryPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inventory', 'categories'] }),
   });
   const createProductMutation = useMutation({ mutationFn: createProduct, onSuccess: invalidateInventory });
+  const ensureProductMutation = useMutation({
+    mutationFn: ensureProduct,
+    onSuccess: invalidateInventory,
+  });
   const updateProductMutation = useMutation({
     mutationFn: ({ productId, payload }: { productId: number; payload: Partial<Product> }) => updateProduct(productId, payload),
     onSuccess: invalidateInventory,
   });
   const archiveProductMutation = useMutation({ mutationFn: archiveProduct, onSuccess: invalidateInventory });
   const unarchiveProductMutation = useMutation({ mutationFn: unarchiveProduct, onSuccess: invalidateInventory });
-  const createBulkReceiptMutation = useMutation({ mutationFn: createBulkStockReceipt, onSuccess: invalidateInventory });
+  const createBulkReceiptMutation = useMutation({
+    mutationFn: createBulkStockReceipt,
+    onSuccess: async () => {
+      await invalidateInventory();
+      setReceivingLines([{ productName: '', quantity: '', purchase_price: '', batch_number: '' }]);
+      setReceivingAdditionalExpenses('');
+    },
+  });
+  const updateStockReceiptMutation = useMutation({
+    mutationFn: ({ receiptId, payload }: { receiptId: number; payload: { quantity: number; purchase_price: number } }) =>
+      updateStockReceipt(receiptId, payload),
+    onSuccess: async () => {
+      await invalidateInventory();
+      setEditingReceiptId(null);
+      setEditReceiptQty('');
+      setEditReceiptPrice('');
+    },
+  });
+  const deleteStockReceiptMutation = useMutation({
+    mutationFn: deleteStockReceipt,
+    onSuccess: invalidateInventory,
+  });
   const createStockTransferMutation = useMutation({ mutationFn: createStockTransfer, onSuccess: invalidateInventory });
   const createStockAdjustmentMutation = useMutation({ mutationFn: createStockAdjustment, onSuccess: invalidateInventory });
 
   const { localDate: today } = useServerClock();
   const categories = categoriesQuery.data ?? [];
   const suppliers = suppliersQuery.data ?? [];
-  const products = productsQuery.data ?? [];
+  const products = useMemo(() => {
+    const seen = new Set<string>();
+    const unique: Product[] = [];
+    for (const product of productsQuery.data ?? []) {
+      if (product.is_archived) continue;
+      const key = product.name.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(product);
+    }
+    return unique;
+  }, [productsQuery.data]);
 
   useEffect(() => {
     if (!editProductId) {
@@ -205,7 +255,18 @@ export default function InventoryPage() {
     }
   }, [editProductId, products]);
 
-  const catalogueProductsRaw = catalogueQuery.data ?? [];
+  const catalogueProductsRaw = useMemo(() => {
+    const seen = new Set<string>();
+    const unique: Product[] = [];
+    for (const product of catalogueQuery.data ?? []) {
+      if (product.is_archived) continue;
+      const key = product.name.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(product);
+    }
+    return unique;
+  }, [catalogueQuery.data]);
   const catalogueProducts = catalogueProductsRaw.filter((product) =>
     catalogueAvailabilityFilter === 'all' ? true : product.availability_status === catalogueAvailabilityFilter,
   );
@@ -216,7 +277,93 @@ export default function InventoryPage() {
     outOfStock: catalogueProductsRaw.filter((product) => product.availability_status === 'out_of_stock').length,
     unavailable: catalogueProductsRaw.filter((product) => product.availability_status === 'unavailable').length,
   };
-  const productOptions = products.filter((item) => !item.is_archived).map((p) => ({ id: p.id, label: `${p.name} (${p.sku})` }));
+  const productOptions = products.map((p) => ({ id: p.id, label: `${p.name} (${p.sku})` }));
+  const receivingProducts = useMemo(() => {
+    const seen = new Set<string>();
+    const unique: Product[] = [];
+    for (const product of receivingProductsQuery.data ?? []) {
+      if (product.is_archived) continue;
+      const key = product.name.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(product);
+    }
+    return unique;
+  }, [receivingProductsQuery.data]);
+  const receivingCatalogMatches = useMemo(() => {
+    const query = receivingCatalogSearch.trim().toLowerCase();
+    if (!query) return receivingProducts.slice(0, 12);
+    return receivingProducts
+      .filter((product) => {
+        const haystack = [
+          product.name,
+          product.sku,
+          product.product_number || '',
+          product.barcode || '',
+          product.brand || '',
+          product.category_name || '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      })
+      .slice(0, 20);
+  }, [receivingCatalogSearch, receivingProducts]);
+
+  const matchesForReceivingLine = (query: string) => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return receivingProducts.slice(0, 8);
+    return receivingProducts
+      .filter((product) => {
+        const haystack = [product.name, product.sku, product.product_number || '', product.barcode || '', product.brand || '']
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(needle);
+      })
+      .slice(0, 8);
+  };
+
+  const saveTypedProductName = (index: number, rawName: string, purchasePrice?: string) => {
+    const name = rawName.trim();
+    if (!name) return;
+    setReceivingProductSearchOpen(null);
+    const existing = receivingProducts.find((item) => item.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      setReceivingLines((rows) =>
+        rows.map((row, i) => (i === index ? { ...row, productName: existing.name } : row)),
+      );
+      return;
+    }
+    ensureProductMutation.mutate(
+      {
+        name,
+        purchase_price: Number(purchasePrice || 0),
+      },
+      {
+        onSuccess: (product) => {
+          setReceivingLines((rows) =>
+            rows.map((row, i) => (i === index ? { ...row, productName: product.name } : row)),
+          );
+        },
+      },
+    );
+  };
+
+  const selectReceivingProduct = (index: number, product: Product) => {
+    setReceivingLines((rows) =>
+      rows.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              productName: product.name,
+              purchase_price: row.purchase_price || product.purchase_price || '',
+            }
+          : row,
+      ),
+    );
+    setReceivingProductSearchOpen(null);
+  };
+
   const lowStockFromProducts = products.filter((product) => product.current_stock <= product.minimum_stock && !product.is_archived);
 
   const handleCategorySubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -764,28 +911,47 @@ export default function InventoryPage() {
       <section className="apex-glass-panel p-4">
         <h3 className="text-sm font-semibold text-slate-800">Register Incoming Stock</h3>
         <p className="mt-1 text-xs text-slate-600">
-          Use this form when new inventory arrives. Enter the buying price per product line, then add shared delivery
-          expenses (shipping, clearing, transport) once for the whole shipment.
+          Use this form when new inventory arrives. Type a product name (pick an existing one or enter a new name to add
+          it to the catalogue), enter the buying price per line, then add shared delivery expenses once for the whole
+          shipment.
         </p>
         <form
           className="mt-3 space-y-3"
           onSubmit={(event) => {
             event.preventDefault();
+            if (createBulkReceiptMutation.isPending) return;
             const formData = new FormData(event.currentTarget);
+            const mergedItems = new Map<
+              string,
+              { product_name: string; quantity: number; purchase_price: number; batch_number: string }
+            >();
+            for (const line of receivingLines) {
+              const productName = line.productName.trim();
+              const quantity = Number(line.quantity);
+              if (!productName || quantity <= 0) continue;
+              const key = productName.toLowerCase();
+              const existing = mergedItems.get(key);
+              if (existing) {
+                existing.quantity += quantity;
+                existing.purchase_price = Number(line.purchase_price || existing.purchase_price || 0);
+                if (line.batch_number.trim()) existing.batch_number = line.batch_number.trim();
+              } else {
+                mergedItems.set(key, {
+                  product_name: productName,
+                  quantity,
+                  purchase_price: Number(line.purchase_price || 0),
+                  batch_number: line.batch_number.trim(),
+                });
+              }
+            }
+            if (mergedItems.size === 0) return;
             createBulkReceiptMutation.mutate({
               supplier: formData.get('supplier') ? Number(formData.get('supplier')) : null,
               invoice_number: String(formData.get('invoice_number') || '').trim(),
               date_received: String(formData.get('date_received') || today),
               additional_expenses: Number(receivingAdditionalExpenses || 0),
               notes: String(formData.get('notes') || '').trim(),
-              items: receivingLines
-                .filter((line) => line.product && Number(line.quantity) > 0)
-                .map((line) => ({
-                  product: Number(line.product),
-                  quantity: Number(line.quantity),
-                  purchase_price: Number(line.purchase_price || 0),
-                  batch_number: line.batch_number || '',
-                })),
+              items: Array.from(mergedItems.values()),
             });
           }}
         >
@@ -813,29 +979,143 @@ export default function InventoryPage() {
             <textarea name="notes" placeholder="Receipt notes" className="sm:col-span-2" />
           </div>
 
+          <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-3">
+            <label className="text-xs font-semibold text-sky-900" htmlFor="receiving-catalog-search">
+              Search available products in the database
+            </label>
+            <input
+              id="receiving-catalog-search"
+              value={receivingCatalogSearch}
+              onChange={(event) => setReceivingCatalogSearch(event.target.value)}
+              placeholder="Search by name, SKU, barcode, brand…"
+              className="mt-2 w-full"
+              autoComplete="off"
+            />
+            <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-sky-100 bg-white">
+              {receivingProductsQuery.isLoading ? (
+                <p className="p-2 text-xs text-slate-500">Loading products…</p>
+              ) : receivingCatalogMatches.length === 0 ? (
+                <p className="p-2 text-xs text-slate-500">
+                  {receivingCatalogSearch.trim()
+                    ? 'No matching products. Type the new name in a product line below to add it.'
+                    : 'Start typing to search the product catalogue.'}
+                </p>
+              ) : (
+                <ul className="divide-y divide-slate-100 text-xs">
+                  {receivingCatalogMatches.map((product) => (
+                    <li key={product.id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-start justify-between gap-2 px-2 py-2 text-left hover:bg-sky-50"
+                        onClick={() => {
+                          setReceivingLines((rows) => {
+                            const emptyIndex = rows.findIndex((row) => !row.productName.trim());
+                            const targetIndex = emptyIndex >= 0 ? emptyIndex : 0;
+                            return rows.map((row, i) =>
+                              i === targetIndex
+                                ? {
+                                    ...row,
+                                    productName: product.name,
+                                    purchase_price: row.purchase_price || product.purchase_price || '',
+                                  }
+                                : row,
+                            );
+                          });
+                          setReceivingCatalogSearch(product.name);
+                        }}
+                      >
+                        <span>
+                          <span className="font-medium text-slate-800">{product.name}</span>
+                          <span className="mt-0.5 block text-[11px] text-slate-500">
+                            {product.sku}
+                            {product.category_name ? ` · ${product.category_name}` : ''}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-[11px] text-slate-600">
+                          Stock: <strong>{product.current_stock}</strong>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-2 text-xs text-slate-600">
             <p className="font-medium text-slate-700">Product lines</p>
             <p className="mt-1">
-              Buying price = unit cost from the supplier invoice (enter USD or KSH). Batch = lot number (optional).
+              Search and select an existing product, or type a new name. New names are saved automatically when you leave
+              the field (or press Enter). Buying price = unit cost from the supplier invoice.
             </p>
           </div>
 
           <div className="space-y-2">
-            {receivingLines.map((line, index) => (
+            {receivingLines.map((line, index) => {
+              const lineMatches = matchesForReceivingLine(line.productName);
+              const showSuggestions = receivingProductSearchOpen === index;
+              return (
               <div key={index} className="grid gap-2 rounded-lg border border-slate-200 p-2 sm:grid-cols-2 xl:grid-cols-4">
-                <select
-                  value={line.product}
-                  onChange={(event) =>
-                    setReceivingLines((rows) => rows.map((row, i) => (i === index ? { ...row, product: event.target.value } : row)))
-                  }
-                >
-                  <option value="">Product</option>
-                  {productOptions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative sm:col-span-2 xl:col-span-1">
+                  <input
+                    value={line.productName}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setReceivingLines((rows) =>
+                        rows.map((row, i) => (i === index ? { ...row, productName: value } : row)),
+                      );
+                      setReceivingProductSearchOpen(index);
+                    }}
+                    onFocus={() => setReceivingProductSearchOpen(index)}
+                    onBlur={() => {
+                      window.setTimeout(() => {
+                        setReceivingProductSearchOpen((openIndex) => (openIndex === index ? null : openIndex));
+                        saveTypedProductName(index, line.productName, line.purchase_price);
+                      }, 150);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        saveTypedProductName(index, line.productName, line.purchase_price);
+                      }
+                      if (event.key === 'Escape') {
+                        setReceivingProductSearchOpen(null);
+                      }
+                    }}
+                    placeholder="Search or type product name"
+                    required
+                    autoComplete="off"
+                    className="w-full"
+                  />
+                  {showSuggestions && (
+                    <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                      {lineMatches.length === 0 ? (
+                        <p className="px-2 py-2 text-[11px] text-slate-500">
+                          No match — keep typing a new name to create it.
+                        </p>
+                      ) : (
+                        lineMatches.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            className="flex w-full items-start justify-between gap-2 px-2 py-2 text-left text-xs hover:bg-emerald-50"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => selectReceivingProduct(index, product)}
+                          >
+                            <span>
+                              <span className="font-medium text-slate-800">{product.name}</span>
+                              <span className="mt-0.5 block text-[11px] text-slate-500">{product.sku}</span>
+                            </span>
+                            <span className="shrink-0 text-[11px] text-slate-600">Qty {product.current_stock}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  {ensureProductMutation.isPending && (
+                    <p className="mt-1 text-[11px] text-slate-500">Saving product…</p>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="1"
@@ -876,7 +1156,8 @@ export default function InventoryPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {receivingSummary.lineCount > 0 && (
@@ -903,17 +1184,20 @@ export default function InventoryPage() {
             <button
               type="button"
               className="apex-btn-soft"
-              onClick={() => setReceivingLines((rows) => [...rows, { product: '', quantity: '', purchase_price: '', batch_number: '' }])}
+              onClick={() => setReceivingLines((rows) => [...rows, { productName: '', quantity: '', purchase_price: '', batch_number: '' }])}
             >
               Add Line
             </button>
-            <button type="submit">Save Receiving Transaction</button>
+            <button type="submit" disabled={createBulkReceiptMutation.isPending}>
+              {createBulkReceiptMutation.isPending ? 'Saving…' : 'Save Receiving Transaction'}
+            </button>
           </div>
         </form>
       </section>
 
       <section className="apex-glass-panel p-4">
         <h3 className="mb-3 text-sm font-semibold text-slate-800">Recent Receipts</h3>
+        <p className="mb-2 text-xs text-slate-500">Edit quantity/price or delete a receipt anytime. Stock updates automatically.</p>
         <div className="overflow-x-auto">
           <table className="min-w-full text-xs">
             <thead>
@@ -925,20 +1209,103 @@ export default function InventoryPage() {
                 <th className="py-2 pr-2">Buying price (KSH / USD)</th>
                 <th className="py-2 pr-2">Shipment expenses (KSH / USD)</th>
                 <th className="py-2 pr-2">Received By</th>
+                <th className="py-2 pr-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {(receiptsQuery.data ?? []).map((receipt) => (
-                <tr key={receipt.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-2">{receipt.invoice_number}</td>
-                  <td className="py-2 pr-2">{receipt.supplier_name || '-'}</td>
-                  <td className="py-2 pr-2">{receipt.product_name}</td>
-                  <td className="py-2 pr-2">{receipt.quantity}</td>
-                  <td className="py-2 pr-2">{formatDualCurrency(receipt.purchase_price, usdToKesRate)}</td>
-                  <td className="py-2 pr-2">{formatDualCurrency(receipt.batch_additional_expenses || '0', usdToKesRate)}</td>
-                  <td className="py-2 pr-2">{receipt.received_by_email || '-'}</td>
-                </tr>
-              ))}
+              {(receiptsQuery.data ?? []).map((receipt) => {
+                const isEditing = editingReceiptId === receipt.id;
+                return (
+                  <tr key={receipt.id} className="border-b border-slate-100 align-top">
+                    <td className="py-2 pr-2">{receipt.invoice_number}</td>
+                    <td className="py-2 pr-2">{receipt.supplier_name || '-'}</td>
+                    <td className="py-2 pr-2">{receipt.product_name}</td>
+                    <td className="py-2 pr-2">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min="1"
+                          value={editReceiptQty}
+                          onChange={(event) => setEditReceiptQty(event.target.value)}
+                          className="w-20"
+                        />
+                      ) : (
+                        receipt.quantity
+                      )}
+                    </td>
+                    <td className="py-2 pr-2">
+                      {isEditing ? (
+                        <DualCurrencyInput
+                          label="Buying price"
+                          kesValue={editReceiptPrice}
+                          onKesChange={setEditReceiptPrice}
+                          usdRate={usdToKesRate}
+                          kesPlaceholder="KSH"
+                          usdPlaceholder="USD"
+                          compact
+                        />
+                      ) : (
+                        formatDualCurrency(receipt.purchase_price, usdToKesRate)
+                      )}
+                    </td>
+                    <td className="py-2 pr-2">{formatDualCurrency(receipt.batch_additional_expenses || '0', usdToKesRate)}</td>
+                    <td className="py-2 pr-2">{receipt.received_by_email || '-'}</td>
+                    <td className="py-2 pr-2">
+                      <div className="flex flex-wrap gap-1">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              className="apex-btn-soft"
+                              disabled={updateStockReceiptMutation.isPending || Number(editReceiptQty) <= 0}
+                              onClick={() =>
+                                updateStockReceiptMutation.mutate({
+                                  receiptId: receipt.id,
+                                  payload: {
+                                    quantity: Number(editReceiptQty),
+                                    purchase_price: Number(editReceiptPrice || 0),
+                                  },
+                                })
+                              }
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="apex-btn-soft"
+                              onClick={() => {
+                                setEditingReceiptId(null);
+                                setEditReceiptQty('');
+                                setEditReceiptPrice('');
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="apex-btn-soft"
+                            onClick={() => {
+                              setEditingReceiptId(receipt.id);
+                              setEditReceiptQty(String(receipt.quantity));
+                              setEditReceiptPrice(String(receipt.purchase_price || '0'));
+                            }}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        <AdminConfirmButton
+                          label="Delete"
+                          confirmMessage={`Delete receipt for ${receipt.product_name} (qty ${receipt.quantity})? Stock will be reduced.`}
+                          disabled={deleteStockReceiptMutation.isPending}
+                          onConfirm={() => deleteStockReceiptMutation.mutateAsync(receipt.id)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

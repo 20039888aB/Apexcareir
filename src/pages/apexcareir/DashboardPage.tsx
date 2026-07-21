@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -16,8 +17,10 @@ import {
 import { PageErrorState, PageSkeleton } from '../../components/apexcareir/PageStates';
 import DashboardCollapsiblePanel from '../../components/apexcareir/DashboardCollapsiblePanel';
 import { ADMIN_ROUTES } from '../../constants/adminRoutes';
+import { lastDayOfMonth, monthValueFromDate, previousMonthValue, useServerClock } from '../../hooks/useServerClock';
 import { getDashboardOverview } from '../../services';
 import { useAuthStore } from '../../store';
+import { formatIsoDate, formatMonthValue } from '../../utils/formatDate';
 import { Link } from 'react-router-dom';
 
 function formatCurrency(value: number) {
@@ -42,10 +45,42 @@ function formatSignedPercent(value: number) {
 
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user);
+  const { localDate, monthValue } = useServerClock();
+  const [backdating, setBackdating] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+
+  const overviewParams = useMemo(() => {
+    if (!backdating) {
+      return undefined;
+    }
+    if (selectedDate) {
+      return { date: selectedDate };
+    }
+    if (selectedMonth) {
+      return { month: selectedMonth };
+    }
+    return undefined;
+  }, [backdating, selectedDate, selectedMonth]);
+
+  const isViewingCurrentPeriod = !backdating || (!selectedDate && !selectedMonth);
+
   const dashboardQuery = useQuery({
-    queryKey: ['dashboard', 'overview'],
-    queryFn: getDashboardOverview,
+    queryKey: ['dashboard', 'overview', overviewParams?.date ?? null, overviewParams?.month ?? null],
+    queryFn: () => getDashboardOverview(overviewParams),
   });
+
+  const resetToCurrentMonth = () => {
+    setBackdating(false);
+    setSelectedMonth('');
+    setSelectedDate('');
+  };
+
+  const openBackdating = () => {
+    setBackdating(true);
+    setSelectedMonth((current) => current || previousMonthValue(monthValue));
+    setSelectedDate('');
+  };
 
   if (dashboardQuery.isLoading) {
     return <PageSkeleton rows={8} />;
@@ -55,8 +90,14 @@ export default function DashboardPage() {
     return <PageErrorState message="Unable to load dashboard data. Please check backend connectivity and permissions." onRetry={() => dashboardQuery.refetch()} />;
   }
 
-  const { cards, charts, insights, recent_sales, recent_purchases, recent_stock_receipts, top_buyers } =
+  const { cards, charts, insights, recent_sales, recent_purchases, recent_stock_receipts, top_buyers, period } =
     dashboardQuery.data;
+  const periodLabel = period?.label || formatMonthValue(monthValue);
+  const revenueHint = period
+    ? period.is_current_month
+      ? `Month to date · ${periodLabel}`
+      : `Full month · ${periodLabel}`
+    : 'Monthly sales revenue';
   const schedulerVariant =
     cards.scheduler_health === 'critical'
       ? 'scheduler-critical'
@@ -82,7 +123,7 @@ export default function DashboardPage() {
     {
       label: 'Total Revenue (Month)',
       value: formatCurrency(toSafeNumber(cards.monthly_sales)),
-      hint: 'Monthly sales revenue',
+      hint: revenueHint,
       to: ADMIN_ROUTES.sales,
       variant: 'monthly-sales',
     },
@@ -155,10 +196,109 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="apex-glass-panel rounded-2xl p-6">
-        <h2 className="apex-section-title text-xl">KPI Command Centre</h2>
-        <p className="apex-muted mt-2 text-sm">
-          Welcome, {user?.first_name || user?.email}. Monitor high-priority operational indicators and intervene fast.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="apex-section-title text-xl">KPI Command Centre</h2>
+            <p className="apex-muted mt-2 text-sm">
+              Welcome, {user?.first_name || user?.email}. Monitor high-priority operational indicators and intervene fast.
+            </p>
+            <p className="mt-3 text-xs text-slate-600">
+              Revenue period: <span className="font-semibold text-slate-800">{periodLabel}</span>
+              {isViewingCurrentPeriod ? ' · locked to current month' : ' · backdated view'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {isViewingCurrentPeriod ? (
+              <button type="button" className="apex-btn-soft text-xs" onClick={openBackdating}>
+                Backdate period
+              </button>
+            ) : (
+              <button type="button" className="apex-btn-soft text-xs" onClick={resetToCurrentMonth}>
+                Current month
+              </button>
+            )}
+          </div>
+        </div>
+
+        {backdating && (
+          <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-white/70 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-xs text-slate-600">
+              Month
+              <input
+                type="month"
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                max={monthValue}
+                value={selectedMonth || monthValueFromDate(selectedDate || localDate)}
+                onChange={(event) => {
+                  setSelectedMonth(event.target.value);
+                  setSelectedDate('');
+                }}
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              Day (optional)
+              <input
+                type="date"
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                max={localDate}
+                min={selectedMonth ? `${selectedMonth}-01` : undefined}
+                value={selectedDate}
+                onChange={(event) => {
+                  const nextDate = event.target.value;
+                  setSelectedDate(nextDate);
+                  if (nextDate) {
+                    setSelectedMonth(monthValueFromDate(nextDate));
+                  }
+                }}
+              />
+            </label>
+            <div className="flex flex-col justify-end gap-2 sm:col-span-2 lg:col-span-2">
+              <p className="text-[11px] text-slate-500">
+                Pick a past month for full-month revenue, or a specific day to see revenue through that date. Defaults stay on{' '}
+                {formatIsoDate(localDate)}.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="apex-btn-soft text-xs"
+                  onClick={() => {
+                    const previous = previousMonthValue(monthValue);
+                    setSelectedMonth(previous);
+                    setSelectedDate('');
+                  }}
+                >
+                  Last month
+                </button>
+                <button
+                  type="button"
+                  className="apex-btn-soft text-xs"
+                  onClick={() => {
+                    setSelectedMonth(monthValue);
+                    setSelectedDate(localDate);
+                    setBackdating(false);
+                  }}
+                >
+                  Reset to today
+                </button>
+              </div>
+            </div>
+            {selectedMonth && selectedMonth === monthValue && !selectedDate && (
+              <p className="text-[11px] text-amber-700 sm:col-span-2 lg:col-span-4">
+                Selected month is the current month — revenue stays month-to-date through today
+                {period?.month_end ? ` (${formatIsoDate(period.month_end)})` : ''}.
+              </p>
+            )}
+            {selectedDate && selectedDate !== localDate && (
+              <p className="text-[11px] text-slate-600 sm:col-span-2 lg:col-span-4">
+                Viewing through {formatIsoDate(selectedDate)}
+                {selectedMonth ? ` in ${formatMonthValue(selectedMonth)}` : ''}.
+                {selectedMonth && selectedMonth !== monthValue
+                  ? ` Full-month end would be ${formatIsoDate(lastDayOfMonth(selectedMonth))}.`
+                  : ''}
+              </p>
+            )}
+          </div>
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {commandCentreCards.map((card) => (

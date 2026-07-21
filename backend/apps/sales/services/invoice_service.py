@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Optional
 
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import F
@@ -605,7 +606,12 @@ def email_invoice_to_customer(invoice: Invoice, *, user=None, recipient_emails=N
         ),
         footer_note=f"{branding['company_name']} · Invoice attached as PDF with company logo",
     )
-    email = EmailMultiAlternatives(subject=subject, body=body_text, to=recipients)
+    email = EmailMultiAlternatives(
+        subject=subject,
+        body=body_text,
+        from_email=settings.DEFAULT_FROM_EMAIL or settings.EMAIL_HOST_USER,
+        to=recipients,
+    )
     email.attach_alternative(body_html, "text/html")
     email.attach(invoice.pdf_file.name, invoice.pdf_file.read(), "application/pdf")
     email.send(fail_silently=False)

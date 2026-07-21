@@ -147,6 +147,15 @@ def _enqueue_email(notification: Notification):
     )
 
 
+def _smtp_from_email():
+    """Prefer a real SMTP identity — Gmail rejects unmatched local-looking From addresses."""
+    from_email = (settings.DEFAULT_FROM_EMAIL or "").strip()
+    host_user = (settings.EMAIL_HOST_USER or "").strip()
+    if host_user and (not from_email or from_email.endswith(".local") or "@apexcareir.local" in from_email):
+        return host_user
+    return from_email or host_user or "no-reply@apexcareir.local"
+
+
 class NotificationService:
     @staticmethod
     @transaction.atomic
@@ -166,13 +175,15 @@ class NotificationService:
         created_by=None,
         direct_users: Optional[List[User]] = None,
         direct_emails: Optional[List[str]] = None,
+        flush_immediately: bool = True,
     ):
         recipient_users = direct_users or _resolve_recipient_users(notification_type)
-        recipient_emails = sorted(set(direct_emails or []))
+        recipient_emails = sorted({(email or "").strip().lower() for email in (direct_emails or []) if (email or "").strip()})
         if not recipient_emails:
             recipient_emails = _resolve_recipient_emails(notification_type, recipient_users)
 
         created_notifications = []
+        queued_emails = set()
         for user in recipient_users:
             if not _user_pref_allows_notification(user, notification_type):
                 continue
@@ -204,41 +215,66 @@ class NotificationService:
             created_notifications.append(notification)
             if created:
                 _enqueue_email(notification)
+                if notification.recipient_email:
+                    queued_emails.add(notification.recipient_email.strip().lower())
 
         for email in recipient_emails:
-            if not created_notifications:
-                subject = _safe_subject(title)
-                placeholder = Notification(
-                    title=title[:180],
-                    message=message,
-                    event_code=event_code,
-                    notification_type=notification_type,
-                    priority=priority,
-                    type=ui_type,
-                )
-                html_content = _build_email_html(title=title, message=message, notification=placeholder)
-                EmailNotificationLog.objects.create(
-                    recipient=email,
-                    subject=subject,
-                    html_content=html_content,
-                    status=EmailNotificationLog.Status.QUEUED,
-                )
+            if email in queued_emails:
+                continue
+            subject = _safe_subject(title)
+            placeholder = Notification(
+                title=title[:180],
+                message=message,
+                event_code=event_code,
+                notification_type=notification_type,
+                priority=priority,
+                type=ui_type,
+            )
+            html_content = _build_email_html(title=title, message=message, notification=placeholder)
+            EmailNotificationLog.objects.create(
+                recipient=email,
+                subject=subject,
+                html_content=html_content,
+                status=EmailNotificationLog.Status.QUEUED,
+            )
+            queued_emails.add(email)
+
+        # Hosted deployments (e.g. Render) often have no separate worker.
+        # Flush the SMTP queue right after the transaction commits so mail still sends.
+        if flush_immediately and queued_emails:
+            transaction.on_commit(lambda: process_pending_email_logs(limit=max(50, len(queued_emails) * 2)))
 
         return created_notifications
 
 
 def process_pending_email_logs(limit=100):
+    if not (settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD):
+        for log in EmailNotificationLog.objects.filter(
+            status__in=[EmailNotificationLog.Status.QUEUED, EmailNotificationLog.Status.FAILED]
+        ).order_by("created_at")[:limit]:
+            log.status = EmailNotificationLog.Status.FAILED
+            log.error_message = "SMTP is not configured. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD."
+            log.retry_count += 1
+            log.save(update_fields=["status", "error_message", "retry_count", "updated_at"])
+            if log.notification_id:
+                Notification.objects.filter(pk=log.notification_id).update(
+                    status=Notification.DeliveryStatus.FAILED,
+                    updated_at=timezone.now(),
+                )
+        return
+
     logs = (
         EmailNotificationLog.objects.select_related("notification")
         .filter(status__in=[EmailNotificationLog.Status.QUEUED, EmailNotificationLog.Status.FAILED])
         .order_by("created_at")[:limit]
     )
+    from_email = _smtp_from_email()
     for log in logs:
         try:
             msg = EmailMultiAlternatives(
                 subject=_safe_subject(log.subject),
                 body="Apex Care IR notification",
-                from_email=settings.DEFAULT_FROM_EMAIL,
+                from_email=from_email,
                 to=[log.recipient],
             )
             msg.attach_alternative(log.html_content, "text/html")

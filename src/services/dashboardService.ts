@@ -115,7 +115,23 @@ export type MonthlyGrowthInsight = {
   sales_growth_percent: number;
 };
 
+export type DashboardPeriod = {
+  as_of: string;
+  system_today: string;
+  month_start: string;
+  month_end: string;
+  is_current_month: boolean;
+  is_current_day: boolean;
+  label: string;
+};
+
+export type DashboardOverviewParams = {
+  date?: string;
+  month?: string;
+};
+
 export type DashboardOverviewResponse = {
+  period?: DashboardPeriod;
   cards: DashboardCards;
   recent_sales: RecentSale[];
   recent_purchases: RecentPurchase[];
@@ -136,7 +152,16 @@ export type DashboardOverviewResponse = {
   };
 };
 
-export async function getDashboardOverview() {
-  const response = await httpClient.get<DashboardOverviewResponse>('/dashboard/overview/');
+export async function getDashboardOverview(params?: DashboardOverviewParams) {
+  const query: Record<string, string> = {};
+  if (params?.date) {
+    query.date = params.date;
+  }
+  if (params?.month) {
+    query.month = params.month;
+  }
+  const response = await httpClient.get<DashboardOverviewResponse>('/dashboard/overview/', {
+    params: query,
+  });
   return response.data;
 }

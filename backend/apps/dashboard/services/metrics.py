@@ -1,9 +1,12 @@
+from calendar import monthrange
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from django.db.models import Count, DecimalField, F, Sum, Value
 from django.db.models.functions import Coalesce, TruncDate, TruncMonth
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from apps.finance.models import Expense
 from apps.appointments.models import Appointment, ContactRequest
@@ -33,16 +36,51 @@ def _normalize_month_key(value):
     return value
 
 
-def build_dashboard_overview():
-    today = timezone.localdate()
+def _month_end(current_date: date) -> date:
+    return current_date.replace(day=monthrange(current_date.year, current_date.month)[1])
+
+
+def resolve_dashboard_base_date(*, as_of_date: Optional[str] = None, month: Optional[str] = None) -> date:
+    """Resolve the dashboard as-of date. Defaults to the system clock."""
+    system_today = timezone.localdate()
+
+    if month:
+        try:
+            year_str, month_str = str(month).split("-", 1)
+            year = int(year_str)
+            month_number = int(month_str)
+            month_start = date(year, month_number, 1)
+        except (TypeError, ValueError):
+            return system_today
+        if (month_start.year, month_start.month) == (system_today.year, system_today.month):
+            return system_today
+        return _month_end(month_start)
+
+    if as_of_date:
+        parsed = parse_date(str(as_of_date))
+        if parsed:
+            return min(parsed, system_today)
+
+    return system_today
+
+
+def build_dashboard_overview(*, as_of_date: Optional[str] = None, month: Optional[str] = None):
+    system_today = timezone.localdate()
+    today = resolve_dashboard_base_date(as_of_date=as_of_date, month=month)
     now = timezone.now()
     month_start = today.replace(day=1)
+    is_current_month = (today.year, today.month) == (system_today.year, system_today.month)
+    # Current month: month-to-date through as-of day. Past months: full calendar month.
+    period_end = today if is_current_month else _month_end(today)
+    if as_of_date and not month:
+        # Explicit day backdate: revenue through that day within its month.
+        period_end = today
 
     today_sales = _sum_or_zero(Sale.objects.filter(date=today), "total")
     today_profit = _sum_or_zero(Sale.objects.filter(date=today), "profit")
-    monthly_sales = _sum_or_zero(Sale.objects.filter(date__gte=month_start, date__lte=today), "total")
-    monthly_expenses = _sum_or_zero(Expense.objects.filter(date__gte=month_start, date__lte=today), "amount")
-    monthly_profit = _sum_or_zero(Sale.objects.filter(date__gte=month_start, date__lte=today), "profit")
+    monthly_sales = _sum_or_zero(Sale.objects.filter(date__gte=month_start, date__lte=period_end), "total")
+    monthly_expenses = _sum_or_zero(Expense.objects.filter(date__gte=month_start, date__lte=period_end), "amount")
+    monthly_profit = _sum_or_zero(Sale.objects.filter(date__gte=month_start, date__lte=period_end), "profit")
 
     inventory_value = Product.objects.aggregate(
         total=Coalesce(
@@ -91,6 +129,7 @@ def build_dashboard_overview():
 
     recent_sales = list(
         Sale.objects.select_related("product", "salesperson")
+        .filter(date__lte=period_end)
         .order_by("-date", "-created_at")[:10]
         .values(
             "id",
@@ -107,6 +146,7 @@ def build_dashboard_overview():
 
     recent_purchases = list(
         StockReceipt.objects.select_related("product", "supplier")
+        .filter(date_received__lte=period_end)
         .order_by("-date_received", "-created_at")[:10]
         .values(
             "id",
@@ -121,6 +161,7 @@ def build_dashboard_overview():
 
     recent_stock_receipts = list(
         StockReceipt.objects.select_related("product", "received_by")
+        .filter(date_received__lte=period_end)
         .order_by("-date_received", "-created_at")[:10]
         .values(
             "id",
@@ -133,7 +174,22 @@ def build_dashboard_overview():
         )
     )
 
+    period_label = month_start.strftime("%B %Y")
+    if is_current_month and period_end < _month_end(month_start):
+        period_label = f"{period_label} (through {period_end.strftime('%d %b')})"
+    elif not is_current_month and as_of_date and period_end.day != _month_end(month_start).day:
+        period_label = f"{period_label} (through {period_end.strftime('%d %b')})"
+
     return {
+        "period": {
+            "as_of": today.isoformat(),
+            "system_today": system_today.isoformat(),
+            "month_start": month_start.isoformat(),
+            "month_end": period_end.isoformat(),
+            "is_current_month": is_current_month,
+            "is_current_day": today == system_today,
+            "label": period_label,
+        },
         "cards": {
             "today_sales": _to_float(today_sales),
             "today_profit": _to_float(today_profit),
@@ -157,17 +213,17 @@ def build_dashboard_overview():
         "recent_purchases": recent_purchases,
         "recent_stock_receipts": recent_stock_receipts,
         "charts": {
-            "sales_trend": build_sales_trend(),
-            "revenue_trend": build_revenue_trend(),
-            "inventory_trend": build_inventory_trend(),
+            "sales_trend": build_sales_trend(as_of=today),
+            "revenue_trend": build_revenue_trend(as_of=today),
+            "inventory_trend": build_inventory_trend(as_of=today),
         },
-        "insights": build_business_insights(),
+        "insights": build_business_insights(as_of=today),
         "top_buyers": top_buyers,
     }
 
 
-def build_sales_trend(days=7):
-    today = timezone.localdate()
+def build_sales_trend(days=7, *, as_of=None):
+    today = as_of or timezone.localdate()
     start_date = today - timedelta(days=days - 1)
 
     sale_points = (
@@ -193,8 +249,8 @@ def build_sales_trend(days=7):
     return results
 
 
-def build_revenue_trend(months=6):
-    today = timezone.localdate()
+def build_revenue_trend(months=6, *, as_of=None):
+    today = as_of or timezone.localdate()
     month_cursor = today.replace(day=1)
     month_keys = []
     for _ in range(months):
@@ -204,13 +260,13 @@ def build_revenue_trend(months=6):
     month_keys.reverse()
 
     sales_data = (
-        Sale.objects.filter(date__gte=month_keys[0])
+        Sale.objects.filter(date__gte=month_keys[0], date__lte=_month_end(today))
         .annotate(month=TruncMonth("date"))
         .values("month")
         .annotate(total=Coalesce(Sum("total"), Value(0, output_field=DecimalField())))
     )
     expense_data = (
-        Expense.objects.filter(date__gte=month_keys[0])
+        Expense.objects.filter(date__gte=month_keys[0], date__lte=_month_end(today))
         .annotate(month=TruncMonth("date"))
         .values("month")
         .annotate(total=Coalesce(Sum("amount"), Value(0, output_field=DecimalField())))
@@ -234,8 +290,8 @@ def build_revenue_trend(months=6):
     return results
 
 
-def build_inventory_trend(months=6):
-    today = timezone.localdate()
+def build_inventory_trend(months=6, *, as_of=None):
+    today = as_of or timezone.localdate()
     month_cursor = today.replace(day=1)
     month_keys = []
     for _ in range(months):
@@ -245,13 +301,13 @@ def build_inventory_trend(months=6):
     month_keys.reverse()
 
     received_data = (
-        StockReceipt.objects.filter(date_received__gte=month_keys[0])
+        StockReceipt.objects.filter(date_received__gte=month_keys[0], date_received__lte=_month_end(today))
         .annotate(month=TruncMonth("date_received"))
         .values("month")
         .annotate(total=Coalesce(Sum("quantity"), Value(0)))
     )
     sold_data = (
-        Sale.objects.filter(date__gte=month_keys[0])
+        Sale.objects.filter(date__gte=month_keys[0], date__lte=_month_end(today))
         .annotate(month=TruncMonth("date"))
         .values("month")
         .annotate(total=Coalesce(Sum("quantity"), Value(0)))
@@ -283,8 +339,8 @@ def _previous_month_start(current_month_start):
     return (current_month_start - timedelta(days=1)).replace(day=1)
 
 
-def _average_daily_sales_by_product(days=30):
-    today = timezone.localdate()
+def _average_daily_sales_by_product(days=30, *, as_of=None):
+    today = as_of or timezone.localdate()
     start_date = today - timedelta(days=days - 1)
     sales_totals = (
         Sale.objects.filter(date__gte=start_date, date__lte=today)
@@ -294,14 +350,18 @@ def _average_daily_sales_by_product(days=30):
     return {item["product_id"]: float(item["total_qty"]) / float(days) for item in sales_totals if item["product_id"]}
 
 
-def build_business_insights():
-    today = timezone.localdate()
+def build_business_insights(*, as_of=None):
+    today = as_of or timezone.localdate()
+    system_today = timezone.localdate()
     current_month_start = _month_start(today)
+    is_current_month = (today.year, today.month) == (system_today.year, system_today.month)
+    period_end = today if is_current_month else _month_end(today)
     previous_month_start = _previous_month_start(current_month_start)
     previous_month_end = current_month_start - timedelta(days=1)
 
     most_sold_products = list(
-        Sale.objects.values("product_id", "product__name", "product__sku")
+        Sale.objects.filter(date__lte=period_end)
+        .values("product_id", "product__name", "product__sku")
         .annotate(
             total_quantity=Coalesce(Sum("quantity"), Value(0)),
             total_sales=Coalesce(Sum("total"), Value(0, output_field=DecimalField(max_digits=14, decimal_places=2))),
@@ -310,7 +370,8 @@ def build_business_insights():
     )
 
     least_sold_products = list(
-        Sale.objects.values("product_id", "product__name", "product__sku")
+        Sale.objects.filter(date__lte=period_end)
+        .values("product_id", "product__name", "product__sku")
         .annotate(
             total_quantity=Coalesce(Sum("quantity"), Value(0)),
             total_sales=Coalesce(Sum("total"), Value(0, output_field=DecimalField(max_digits=14, decimal_places=2))),
@@ -319,7 +380,7 @@ def build_business_insights():
         .order_by("total_quantity", "total_sales")[:5]
     )
 
-    average_daily_sales_map = _average_daily_sales_by_product(days=30)
+    average_daily_sales_map = _average_daily_sales_by_product(days=30, as_of=today)
     active_products = Product.objects.filter(status=Product.Status.ACTIVE).values(
         "id",
         "name",
@@ -367,7 +428,7 @@ def build_business_insights():
     )
 
     current_month_sales = _sum_or_zero(
-        Sale.objects.filter(date__gte=current_month_start, date__lte=today),
+        Sale.objects.filter(date__gte=current_month_start, date__lte=period_end),
         "total",
     )
     previous_month_sales = _sum_or_zero(
@@ -375,7 +436,7 @@ def build_business_insights():
         "total",
     )
     current_month_profit = _sum_or_zero(
-        Sale.objects.filter(date__gte=current_month_start, date__lte=today),
+        Sale.objects.filter(date__gte=current_month_start, date__lte=period_end),
         "profit",
     )
     previous_month_profit = _sum_or_zero(
@@ -395,7 +456,7 @@ def build_business_insights():
     )
 
     monthly_growth_trend = []
-    trend_points = build_revenue_trend(months=6)
+    trend_points = build_revenue_trend(months=6, as_of=today)
     previous_sales = None
     for point in trend_points:
         growth = 0.0
