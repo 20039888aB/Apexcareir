@@ -10,6 +10,7 @@ import { ADMIN_ROUTES } from '../../constants/adminRoutes';
 import { login, type LoginInput } from '../../services';
 import { useAuthStore } from '../../store';
 import { loginSchema } from '../../services/authService';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const backgroundIcons = [
   { Icon: Building2, left: '10%', top: '16%', delay: 0.2, duration: 8.5, size: 22 },
@@ -150,7 +151,10 @@ export default function LoginPage() {
 
             {loginMutation.error && (
               <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
-                Unable to sign in. Check credentials and try again.
+                {getApiErrorMessage(
+                  loginMutation.error,
+                  'Unable to sign in. Check credentials and try again.',
+                )}
               </p>
             )}
 
