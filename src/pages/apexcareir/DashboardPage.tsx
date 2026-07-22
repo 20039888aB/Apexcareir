@@ -112,21 +112,25 @@ export default function DashboardPage() {
     {
       label: "Today's Sales",
       value: formatCurrency(toSafeNumber(cards.today_sales)),
-      hint: period?.is_current_day === false ? `Sales on ${period?.as_of || 'selected day'}` : 'Sales recorded today',
+      hint: period?.is_current_day === false ? `Paid sales on ${period?.as_of || 'selected day'}` : 'Paid sales confirmed today',
       to: ADMIN_ROUTES.sales,
       variant: 'sales',
     },
     {
       label: "Today's Profit",
       value: formatCurrency(toSafeNumber(cards.today_profit)),
-      hint: period?.is_current_day === false ? `Profit on ${period?.as_of || 'selected day'}` : 'Profit from sales recorded today',
+      hint: period?.is_current_day === false ? `Profit from paid sales on ${period?.as_of || 'selected day'}` : 'Profit from sales paid today',
       to: ADMIN_ROUTES.sales,
       variant: 'profit',
     },
     {
       label: 'Total Revenue (Month)',
       value: formatCurrency(toSafeNumber(cards.monthly_sales)),
-      hint: revenueHint,
+      hint: period
+        ? period.is_current_month
+          ? `Paid revenue · ${periodLabel}`
+          : `Paid revenue · ${periodLabel}`
+        : 'Paid monthly sales revenue',
       to: ADMIN_ROUTES.sales,
       variant: 'monthly-sales',
     },

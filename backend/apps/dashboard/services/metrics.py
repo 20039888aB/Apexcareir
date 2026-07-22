@@ -28,31 +28,33 @@ def _sum_or_zero(queryset, field_name):
     return aggregate["total"] or Decimal("0")
 
 
-def _active_invoices():
-    return Invoice.objects.exclude(status=Invoice.Status.CANCELLED)
+def _paid_invoices():
+    """Only fully paid, non-cancelled invoices count as recorded sales."""
+    return Invoice.objects.filter(payment_status=Invoice.PaymentStatus.PAID).exclude(
+        status=Invoice.Status.CANCELLED
+    )
+
+
+def _paid_invoices_for_dates(*, start_date: date, end_date: date):
+    """
+    Recognize sales on the payment confirmation day when available.
+    Falls back to invoice_date for older paid invoices without paid_at.
+    """
+    return _paid_invoices().annotate(
+        recognized_date=Coalesce(TruncDate("paid_at"), F("invoice_date"))
+    ).filter(recognized_date__gte=start_date, recognized_date__lte=end_date)
 
 
 def _sales_total_for_dates(*, start_date: date, end_date: date) -> Decimal:
-    """Revenue for a date range from recorded invoices (fallback to orphan sales)."""
-    invoice_total = _sum_or_zero(
-        _active_invoices().filter(invoice_date__gte=start_date, invoice_date__lte=end_date),
-        "grand_total",
-    )
-    orphan_sales_total = _sum_or_zero(
-        Sale.objects.filter(date__gte=start_date, date__lte=end_date, invoice_record__isnull=True),
-        "total",
-    )
-    return invoice_total + orphan_sales_total
+    """Revenue recognized only after payment is confirmed as paid."""
+    return _sum_or_zero(_paid_invoices_for_dates(start_date=start_date, end_date=end_date), "grand_total")
 
 
 def _profit_total_for_dates(*, start_date: date, end_date: date) -> Decimal:
-    """Profit for a date range from invoice line items (fallback to orphan sales)."""
-    line_profit = (
-        InvoiceLineItem.objects.filter(
-            invoice__invoice_date__gte=start_date,
-            invoice__invoice_date__lte=end_date,
-        )
-        .exclude(invoice__status=Invoice.Status.CANCELLED)
+    """Profit recognized only after payment is confirmed as paid."""
+    paid_invoice_ids = _paid_invoices_for_dates(start_date=start_date, end_date=end_date).values("id")
+    return (
+        InvoiceLineItem.objects.filter(invoice_id__in=paid_invoice_ids)
         .aggregate(
             total=Coalesce(
                 Sum(
@@ -66,11 +68,6 @@ def _profit_total_for_dates(*, start_date: date, end_date: date) -> Decimal:
         )["total"]
         or Decimal("0")
     )
-    orphan_profit = _sum_or_zero(
-        Sale.objects.filter(date__gte=start_date, date__lte=end_date, invoice_record__isnull=True),
-        "profit",
-    )
-    return line_profit + orphan_profit
 
 
 def _normalize_month_key(value):

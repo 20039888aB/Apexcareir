@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from apps.inventory.models import Product, ProductCategory
-from apps.sales.models import Sale
+from apps.sales.models import Invoice, InvoiceLineItem, Sale
 from apps.suppliers.models import Supplier
 
 User = get_user_model()
@@ -43,7 +43,51 @@ class DashboardAPITests(APITestCase):
         self.assertTrue(response.data["period"]["is_current_month"])
         self.assertTrue(response.data["period"]["is_current_day"])
 
-    def test_dashboard_monthly_revenue_respects_backdated_month(self):
+    def _aware_day(self, day):
+        return timezone.make_aware(datetime.combine(day, time.min))
+
+    def _create_paid_invoice(self, *, user, product, customer, invoice_number, quantity, unit_price, cost_price, day):
+        sale = Sale.objects.create(
+            invoice_number=invoice_number,
+            customer=customer,
+            product=product,
+            quantity=quantity,
+            price=unit_price,
+            discount=Decimal("0.00"),
+            tax=Decimal("0.00"),
+            cost_price=cost_price,
+            date=day,
+            salesperson=user,
+        )
+        line_total = Decimal(quantity) * unit_price
+        invoice = Invoice.objects.create(
+            invoice_number=invoice_number,
+            sale=sale,
+            customer_name=customer,
+            status=Invoice.Status.PAID,
+            payment_status=Invoice.PaymentStatus.PAID,
+            subtotal=line_total,
+            discount=Decimal("0.00"),
+            tax=Decimal("0.00"),
+            grand_total=line_total,
+            amount_paid=line_total,
+            invoice_date=day,
+            paid_at=self._aware_day(day),
+            generated_by=user,
+        )
+        InvoiceLineItem.objects.create(
+            invoice=invoice,
+            product=product,
+            quantity=quantity,
+            unit_price=unit_price,
+            cost_price=cost_price,
+            discount=Decimal("0.00"),
+            tax=Decimal("0.00"),
+            line_total=line_total,
+        )
+        return invoice
+
+    def test_dashboard_only_counts_paid_invoices_as_recorded_sales(self):
         user = User.objects.create_superuser(
             email="dashboard-admin@example.com",
             password="StrongPass123!",
@@ -67,29 +111,52 @@ class DashboardAPITests(APITestCase):
             current_stock=100,
             minimum_stock=5,
         )
-        Sale.objects.create(
-            invoice_number="INV-DASH-PREV",
-            customer="Past Client",
+
+        unpaid_sale = Sale.objects.create(
+            invoice_number="INV-DASH-UNPAID",
+            customer="Unpaid Client",
             product=product,
-            quantity=4,
-            price=Decimal("25.00"),
-            discount=Decimal("0.00"),
-            tax=Decimal("0.00"),
-            cost_price=Decimal("10.00"),
-            date=previous_month,
-            salesperson=user,
-        )
-        Sale.objects.create(
-            invoice_number="INV-DASH-CUR",
-            customer="Current Client",
-            product=product,
-            quantity=2,
+            quantity=10,
             price=Decimal("25.00"),
             discount=Decimal("0.00"),
             tax=Decimal("0.00"),
             cost_price=Decimal("10.00"),
             date=today,
             salesperson=user,
+        )
+        Invoice.objects.create(
+            invoice_number="INV-DASH-UNPAID",
+            sale=unpaid_sale,
+            customer_name="Unpaid Client",
+            status=Invoice.Status.ISSUED,
+            payment_status=Invoice.PaymentStatus.UNPAID,
+            subtotal=Decimal("250.00"),
+            discount=Decimal("0.00"),
+            tax=Decimal("0.00"),
+            grand_total=Decimal("250.00"),
+            invoice_date=today,
+            generated_by=user,
+        )
+
+        self._create_paid_invoice(
+            user=user,
+            product=product,
+            customer="Past Client",
+            invoice_number="INV-DASH-PREV",
+            quantity=4,
+            unit_price=Decimal("25.00"),
+            cost_price=Decimal("10.00"),
+            day=previous_month,
+        )
+        self._create_paid_invoice(
+            user=user,
+            product=product,
+            customer="Current Client",
+            invoice_number="INV-DASH-CUR",
+            quantity=2,
+            unit_price=Decimal("25.00"),
+            cost_price=Decimal("10.00"),
+            day=today,
         )
 
         current_response = self.client.get("/api/v1/dashboard/overview/")
