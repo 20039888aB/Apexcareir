@@ -13,7 +13,6 @@ import {
   createStockTransfer,
   deleteProductCategory,
   deleteStockReceipt,
-  deleteStockTransfer,
   ensureProduct,
   forceDeleteProduct,
   listLowStockProducts,
