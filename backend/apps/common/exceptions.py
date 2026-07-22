@@ -1,6 +1,5 @@
 import logging
 
-from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
@@ -12,9 +11,10 @@ def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
     if response is None:
         logger.exception("Unhandled API exception in %s", context.get("view"))
-        detail = "An unexpected error occurred."
-        if settings.DEBUG:
-            detail = f"{exc.__class__.__name__}: {exc}"
+        # Always return a usable message for admin clients (SMTP/config failures are otherwise opaque on Render).
+        detail = f"{exc.__class__.__name__}: {exc}".strip()
+        if not detail or detail == ":":
+            detail = "An unexpected error occurred."
         return Response(
             {"detail": detail},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

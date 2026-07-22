@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -15,7 +16,15 @@ class HealthCheckView(APIView):
     permission_classes = []
 
     def get(self, request):
-        return Response({"status": "ok"})
+        email_configured = bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD)
+        return Response(
+            {
+                "status": "ok",
+                "email_configured": email_configured,
+                "email_host": settings.EMAIL_HOST or "",
+                "email_user_set": bool(settings.EMAIL_HOST_USER),
+            }
+        )
 
 
 class SystemClockAPIView(APIView):
