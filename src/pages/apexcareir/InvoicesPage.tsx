@@ -7,6 +7,7 @@ import InvoiceLineEditor, { calculateLinesTotal, createInitialInvoiceLines, type
 import BuyerPicker from '../../components/apexcareir/BuyerPicker';
 import { useServerClock } from '../../hooks/useServerClock';
 import { formatDateTime, formatIsoDate } from '../../utils/formatDate';
+import { getApiErrorMessage } from '../../utils/apiError';
 import {
   createInvoice,
   deleteInvoice,
@@ -227,7 +228,10 @@ export default function InvoicesPage() {
       setEmailTarget(null);
       await invalidateInvoices();
     },
-    onError: () => setActionMessage('Unable to email invoice. Add a valid recipient email and try again.'),
+    onError: (error) =>
+      setActionMessage(
+        getApiErrorMessage(error, 'Unable to email invoice. Add a valid recipient email and try again.'),
+      ),
   });
 
   const regenerateMutation = useMutation({
@@ -896,7 +900,7 @@ export default function InvoicesPage() {
         onClose={() => setEmailTarget(null)}
         onSend={(emails) => {
           if (!emailTarget) return;
-          emailMutation.mutate({ invoiceId: emailTarget.id, email: emails || undefined });
+          emailMutation.mutate({ invoiceId: emailTarget.id, email: emails });
         }}
       />
 

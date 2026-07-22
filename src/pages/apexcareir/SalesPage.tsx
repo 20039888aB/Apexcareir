@@ -23,6 +23,7 @@ import {
   type Product,
   type Sale,
 } from '../../services';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 type SalesTab = 'entry' | 'history' | 'customers';
 
@@ -158,7 +159,10 @@ export default function SalesPage() {
       setActionMessage(`Invoice emailed to ${recipients}.`);
       setEmailTarget(null);
     },
-    onError: () => setActionMessage('Unable to email invoice. Add a valid recipient email and try again.'),
+    onError: (error) =>
+      setActionMessage(
+        getApiErrorMessage(error, 'Unable to email invoice. Add a valid recipient email and try again.'),
+      ),
   });
 
   const selectedProduct = (productsQuery.data ?? []).find((product) => product.id === Number(selectedProductId));
@@ -664,7 +668,7 @@ export default function SalesPage() {
         onClose={() => setEmailTarget(null)}
         onSend={(emails) => {
           if (!emailTarget) return;
-          emailMutation.mutate({ invoiceId: emailTarget.id, email: emails || undefined });
+          emailMutation.mutate({ invoiceId: emailTarget.id, email: emails });
         }}
       />
     </div>

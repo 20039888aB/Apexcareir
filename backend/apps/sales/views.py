@@ -247,6 +247,11 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:  # noqa: BLE001
+            return Response(
+                {"detail": f"Unable to send invoice email: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
         return Response(
             {
                 "status": "sent",

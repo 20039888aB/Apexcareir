@@ -10,6 +10,10 @@ type InvoiceEmailModalProps = {
   onSend: (emails: string) => void;
 };
 
+function looksLikeEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 export default function InvoiceEmailModal({
   open,
   invoiceNumber,
@@ -20,16 +24,38 @@ export default function InvoiceEmailModal({
   onSend,
 }: InvoiceEmailModalProps) {
   const [emails, setEmails] = useState(defaultEmail);
+  const [localError, setLocalError] = useState('');
 
   useEffect(() => {
     if (open) {
       setEmails(defaultEmail);
+      setLocalError('');
     }
   }, [open, defaultEmail]);
 
   if (!open) {
     return null;
   }
+
+  const handleSend = () => {
+    const trimmed = emails.trim();
+    const fallback = defaultEmail.trim();
+    const toSend = trimmed || fallback;
+    if (!toSend) {
+      setLocalError('Enter at least one recipient email address.');
+      return;
+    }
+    const parts = toSend
+      .split(/[,;]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length === 0 || parts.some((part) => !looksLikeEmail(part))) {
+      setLocalError('Enter a valid email address (you can separate several with commas).');
+      return;
+    }
+    setLocalError('');
+    onSend(parts.join(', '));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
@@ -44,15 +70,23 @@ export default function InvoiceEmailModal({
           Recipient email(s)
         </label>
         <input
-          type="text"
+          type="email"
+          multiple
           value={emails}
-          onChange={(event) => setEmails(event.target.value)}
-          placeholder="email@example.com, finance@company.com"
+          onChange={(event) => {
+            setEmails(event.target.value);
+            if (localError) setLocalError('');
+          }}
+          placeholder={defaultEmail || 'email@example.com, finance@company.com'}
           className="mt-1 w-full"
+          autoFocus
         />
         <p className="mt-1 text-[11px] text-slate-500">
-          Separate multiple emails with commas. Leave blank to use the customer email on the invoice.
+          {defaultEmail
+            ? `Customer email on file: ${defaultEmail}. You can change it or add more (comma-separated).`
+            : 'This invoice has no customer email on file — type a recipient address before sending.'}
         </p>
+        {localError && <p className="mt-2 text-xs text-red-600">{localError}</p>}
 
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" className="apex-btn-soft" onClick={onClose} disabled={isSending}>
@@ -62,7 +96,7 @@ export default function InvoiceEmailModal({
             type="button"
             className="apex-btn-primary"
             disabled={isSending}
-            onClick={() => onSend(emails.trim())}
+            onClick={handleSend}
           >
             {isSending ? 'Sending...' : 'Send Invoice'}
           </button>

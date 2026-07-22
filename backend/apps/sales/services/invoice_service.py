@@ -583,6 +583,11 @@ def email_invoice_to_customer(invoice: Invoice, *, user=None, recipient_emails=N
     branding = get_company_branding()
     recipients = normalize_recipient_emails(recipient_emails)
 
+    if not (settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD):
+        raise ValueError(
+            "Email is not configured on the server. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD, then try again."
+        )
+
     save_invoice_pdf(invoice, invoice.sale)
 
     contact_phone = branding["phone"]
@@ -613,7 +618,16 @@ def email_invoice_to_customer(invoice: Invoice, *, user=None, recipient_emails=N
         to=recipients,
     )
     email.attach_alternative(body_html, "text/html")
-    email.attach(invoice.pdf_file.name, invoice.pdf_file.read(), "application/pdf")
+    if not invoice.pdf_file:
+        raise ValueError("Invoice PDF is missing. Regenerate the invoice PDF, then try emailing again.")
+    invoice.pdf_file.open("rb")
+    try:
+        pdf_bytes = invoice.pdf_file.read()
+    finally:
+        invoice.pdf_file.close()
+    if not pdf_bytes:
+        raise ValueError("Invoice PDF is empty. Regenerate the invoice PDF, then try emailing again.")
+    email.attach(invoice.pdf_file.name.split("/")[-1] or f"{invoice.invoice_number}.pdf", pdf_bytes, "application/pdf")
     email.send(fail_silently=False)
 
     recipient_summary = ", ".join(recipients)
