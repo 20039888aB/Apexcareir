@@ -41,5 +41,5 @@ urlpatterns = [
     path('api/v1/', include('apps.ai_assistant.urls')),
 ]
 
-if settings.DEBUG:
+if settings.DEBUG or not getattr(settings, "USE_DATABASE_MEDIA", False):
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -62,6 +62,8 @@ services:
         value: "20"
       - key: ENABLE_EMBEDDED_SCHEDULER
         value: "True"
+      - key: USE_DATABASE_MEDIA
+        value: "True"
 
   - type: web
     name: apexcareir-web

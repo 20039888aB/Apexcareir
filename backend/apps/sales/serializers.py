@@ -45,10 +45,13 @@ class CustomerSerializer(serializers.ModelSerializer):
     def get_logo_url(self, obj):
         if not obj.logo:
             return None
+        url = obj.logo.url
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
         request = self.context.get("request")
         if request:
-            return request.build_absolute_uri(obj.logo.url)
-        return obj.logo.url
+            return request.build_absolute_uri(url)
+        return url
 
 
 class CustomerDetailSerializer(CustomerSerializer):
@@ -196,10 +199,13 @@ class InvoiceSerializer(serializers.ModelSerializer):
     def get_customer_logo_url(self, obj):
         if not obj.customer or not obj.customer.logo:
             return None
+        url = obj.customer.logo.url
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
         request = self.context.get("request")
         if request:
-            return request.build_absolute_uri(obj.customer.logo.url)
-        return obj.customer.logo.url
+            return request.build_absolute_uri(url)
+        return url
 
     def get_pdf_url(self, obj):
         request = self.context.get("request")

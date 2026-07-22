@@ -34,6 +34,7 @@ env = environ.Env(
     OLLAMA_BASE_URL=(str, "http://127.0.0.1:11434"),
     OLLAMA_MODEL=(str, "llama3.2:3b"),
     OLLAMA_TIMEOUT_SECONDS=(int, 45),
+    USE_DATABASE_MEDIA=(bool, False),
 )
 
 environ.Env.read_env(BASE_DIR / ".env")
@@ -132,16 +133,27 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+USE_DATABASE_MEDIA = env("USE_DATABASE_MEDIA")
 
 # Default file storage (media). Staticfiles storage is overridden in production for WhiteNoise.
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
+if USE_DATABASE_MEDIA:
+    STORAGES = {
+        "default": {
+            "BACKEND": "apps.common.storage.DatabaseMediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+else:
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"

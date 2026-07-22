@@ -293,7 +293,11 @@ def build_invoice_pdf_bytes(*, invoice, sale, company: Optional[CompanySettings]
         try:
             from reportlab.platypus import Image
 
-            customer_logo_cell = Image(invoice.customer.logo.path, width=2.5 * cm, height=1.5 * cm)
+            from apps.common.services.company_branding import materialize_field_file
+
+            logo_path = materialize_field_file(invoice.customer.logo, suffix=".png")
+            if logo_path:
+                customer_logo_cell = Image(logo_path, width=2.5 * cm, height=1.5 * cm)
         except Exception:
             customer_logo_cell = ""
 

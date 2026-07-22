@@ -29,14 +29,26 @@ SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 
 # Serve collected static files (Django admin CSS/JS, etc.) via Gunicorn on Render.
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-    },
-}
+# Media uploads persist in Postgres (DatabaseMediaStorage) so free ephemeral disks don't lose images.
+USE_DATABASE_MEDIA = env.bool("USE_DATABASE_MEDIA", default=True)
+if USE_DATABASE_MEDIA:
+    STORAGES = {
+        "default": {
+            "BACKEND": "apps.common.storage.DatabaseMediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
+else:
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
 WHITENOISE_USE_FINDERS = False
 WHITENOISE_AUTOREFRESH = False
 

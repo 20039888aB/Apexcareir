@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.http import Http404, HttpResponse
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -7,7 +8,7 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import HasBusinessPermission, IsSuperAdmin
 from apps.audit_logs.services import log_audit_event
 
-from .models import CompanySettings, TransactionEvent
+from .models import CompanySettings, MediaAsset, TransactionEvent
 from .serializers import CompanySettingsSerializer, TransactionEventSerializer
 from .services.datetime_context import get_system_clock_payload
 
@@ -25,6 +26,33 @@ class HealthCheckView(APIView):
                 "email_user_set": bool(settings.EMAIL_HOST_USER),
             }
         )
+
+
+class MediaAssetAPIView(APIView):
+    """Serve database-backed media files publicly (logos, invoice PDFs, receipts)."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, path):
+        name = (path or "").lstrip("/")
+        asset = MediaAsset.objects.filter(name=name).first()
+        if asset is None:
+            # Fallback for older filesystem uploads while migrating.
+            file_path = settings.MEDIA_ROOT / name
+            if file_path.is_file():
+                content_type = "application/octet-stream"
+                if name.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                    content_type = f"image/{'jpeg' if name.lower().endswith(('.jpg', '.jpeg')) else name.rsplit('.', 1)[-1]}"
+                response = HttpResponse(file_path.read_bytes(), content_type=content_type)
+                response["Cache-Control"] = "public, max-age=86400"
+                return response
+            raise Http404("Media not found.")
+
+        response = HttpResponse(bytes(asset.content), content_type=asset.content_type or "application/octet-stream")
+        response["Cache-Control"] = "public, max-age=86400"
+        response["Content-Length"] = str(asset.size or len(asset.content))
+        return response
 
 
 class SystemClockAPIView(APIView):

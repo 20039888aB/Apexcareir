@@ -25,11 +25,14 @@ class CompanySettingsSerializer(serializers.ModelSerializer):
         read_only_fields = ["updated_at", "logo_url"]
 
     def get_logo_url(self, obj):
-        request = self.context.get("request")
         if obj.logo:
+            url = obj.logo.url
+            if url.startswith("http://") or url.startswith("https://"):
+                return url
+            request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.logo.url)
-            return f"{get_media_base_url()}{obj.logo.url}"
+                return request.build_absolute_uri(url)
+            return f"{get_media_base_url()}{url}"
         return get_company_branding()["logo_url"]
 
 

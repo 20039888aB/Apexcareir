@@ -49,6 +49,23 @@ class CompanySettings(models.Model):
         return instance
 
 
+class MediaAsset(models.Model):
+    """Binary media stored in the database for durable uploads on ephemeral hosts."""
+
+    name = models.CharField(max_length=500, unique=True, db_index=True)
+    content = models.BinaryField()
+    content_type = models.CharField(max_length=120, default="application/octet-stream")
+    size = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class DocumentNumberSequence(models.Model):
     key = models.CharField(max_length=40, unique=True)
     prefix = models.CharField(max_length=20)

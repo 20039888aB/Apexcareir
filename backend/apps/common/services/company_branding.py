@@ -31,15 +31,45 @@ def get_default_logo_path():
     return None
 
 
+def materialize_field_file(field_file, *, suffix=""):
+    """Return a local filesystem path for a FieldFile (supports database storage)."""
+    if not field_file:
+        return None
+    try:
+        path = field_file.path
+        if path and Path(path).is_file():
+            return path
+    except Exception:
+        pass
+
+    import tempfile
+
+    name = getattr(field_file, "name", "") or "asset"
+    guessed_suffix = Path(name).suffix or suffix or ".bin"
+    try:
+        field_file.open("rb")
+        payload = field_file.read()
+    except Exception:
+        return None
+    finally:
+        try:
+            field_file.close()
+        except Exception:
+            pass
+    if not payload:
+        return None
+    handle = tempfile.NamedTemporaryFile(delete=False, suffix=guessed_suffix)
+    handle.write(payload if isinstance(payload, (bytes, bytearray)) else bytes(payload))
+    handle.close()
+    return handle.name
+
+
 def get_company_logo_path(company=None):
     company = company or CompanySettings.get_solo()
     if company.logo:
-        try:
-            logo_path = company.logo.path
-            if logo_path and Path(logo_path).is_file():
-                return logo_path
-        except Exception:
-            pass
+        materialized = materialize_field_file(company.logo, suffix=".png")
+        if materialized:
+            return materialized
     return get_default_logo_path()
 
 
