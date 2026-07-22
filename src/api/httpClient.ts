@@ -17,19 +17,24 @@ httpClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  // Let the browser set multipart boundary for file uploads.
+  // Default Content-Type is application/json; FormData needs the browser
+  // multipart boundary, so strip Content-Type and let Axios/XHR set it.
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-    if (config.headers && typeof config.headers.set === 'function') {
-      config.headers.set('Content-Type', false as unknown as string);
-      config.headers.delete('Content-Type');
-    } else if (config.headers) {
-      delete (config.headers as Record<string, unknown>)['Content-Type'];
-      delete (config.headers as Record<string, unknown>)['content-type'];
+    const headers = config.headers as { delete?: (name: string) => void; set?: (name: string, value: unknown) => void } & Record<string, unknown>;
+    if (typeof headers.delete === 'function') {
+      headers.delete('Content-Type');
+      headers.delete('content-type');
+    } else {
+      delete headers['Content-Type'];
+      delete headers['content-type'];
+    }
+    // Axios treats `false` as "do not set this header" for XHR.
+    if (typeof headers.set === 'function') {
+      headers.set('Content-Type', false);
     }
   }
   return config;
 });
-
 httpClient.interceptors.response.use(
   (response) => response,
   async (error) => {
