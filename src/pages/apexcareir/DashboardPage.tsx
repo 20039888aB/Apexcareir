@@ -96,11 +96,6 @@ export default function DashboardPage() {
   const { cards, charts, insights, recent_sales, recent_purchases, recent_stock_receipts, top_buyers, period } =
     dashboardQuery.data;
   const periodLabel = period?.label || formatMonthValue(monthValue);
-  const revenueHint = period
-    ? period.is_current_month
-      ? `Month to date · ${periodLabel}`
-      : `Full month · ${periodLabel}`
-    : 'Monthly sales revenue';
   const schedulerVariant =
     cards.scheduler_health === 'critical'
       ? 'scheduler-critical'
