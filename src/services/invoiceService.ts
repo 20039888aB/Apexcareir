@@ -150,9 +150,7 @@ export async function getInvoice(invoiceId: number) {
 export async function createInvoice(payload: InvoiceInput) {
   const hasLogo = payload.customer_logo instanceof File;
   if (hasLogo) {
-    const response = await httpClient.post<Invoice>('/invoices/', buildInvoiceFormData(payload), {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await httpClient.post<Invoice>('/invoices/', buildInvoiceFormData(payload));
     return response.data;
   }
   const { customer_logo: _logo, ...jsonPayload } = payload;
@@ -163,9 +161,7 @@ export async function createInvoice(payload: InvoiceInput) {
 export async function updateInvoice(invoiceId: number, payload: InvoiceInput) {
   const hasLogo = payload.customer_logo instanceof File;
   if (hasLogo) {
-    const response = await httpClient.patch<Invoice>(`/invoices/${invoiceId}/`, buildInvoiceFormData(payload), {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await httpClient.patch<Invoice>(`/invoices/${invoiceId}/`, buildInvoiceFormData(payload));
     return response.data;
   }
   const { customer_logo: _logo, ...jsonPayload } = payload;

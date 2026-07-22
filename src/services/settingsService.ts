@@ -38,9 +38,7 @@ export async function updateCompanySettings(payload: CompanySettingsInput) {
         formData.append(key, value);
       }
     });
-    const response = await httpClient.patch<CompanySettings>('/settings/company/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await httpClient.patch<CompanySettings>('/settings/company/', formData);
     return response.data;
   }
 

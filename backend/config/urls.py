@@ -1,23 +1,11 @@
 """
 URL configuration for config project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+
+from apps.common.views import MediaAssetAPIView
 
 admin.site.site_header = "Apex Care IR Administration"
 admin.site.site_title = "Apexcareir Admin"
@@ -26,20 +14,19 @@ admin.site.index_title = "Business Management Console"
 # API route modules are mounted under /api/v1/.
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/v1/', include('apps.common.urls')),
-    path('api/v1/', include('apps.accounts.urls')),
-    path('api/v1/', include('apps.dashboard.urls')),
-    path('api/v1/', include('apps.inventory.urls')),
-    path('api/v1/', include('apps.suppliers.urls')),
-    path('api/v1/', include('apps.sales.urls')),
-    path('api/v1/', include('apps.finance.urls')),
-    path('api/v1/', include('apps.reports.urls')),
-    path('api/v1/', include('apps.notifications.urls')),
-    path('api/v1/', include('apps.audit_logs.urls')),
-    path('api/v1/', include('apps.appointments.urls')),
-    path('api/v1/', include('apps.ai_assistant.urls')),
+    path("admin/", admin.site.urls),
+    path("api/v1/", include("apps.common.urls")),
+    path("api/v1/", include("apps.accounts.urls")),
+    path("api/v1/", include("apps.dashboard.urls")),
+    path("api/v1/", include("apps.inventory.urls")),
+    path("api/v1/", include("apps.suppliers.urls")),
+    path("api/v1/", include("apps.sales.urls")),
+    path("api/v1/", include("apps.finance.urls")),
+    path("api/v1/", include("apps.reports.urls")),
+    path("api/v1/", include("apps.notifications.urls")),
+    path("api/v1/", include("apps.audit_logs.urls")),
+    path("api/v1/", include("apps.appointments.urls")),
+    path("api/v1/", include("apps.ai_assistant.urls")),
+    # Production-safe media serving (DB-backed first, filesystem fallback).
+    re_path(r"^media/(?P<path>.*)$", MediaAssetAPIView.as_view(), name="media-root"),
 ]
-
-if settings.DEBUG or not getattr(settings, "USE_DATABASE_MEDIA", False):
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
