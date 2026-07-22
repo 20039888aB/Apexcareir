@@ -95,6 +95,8 @@ class DashboardAPITests(APITestCase):
         current_response = self.client.get("/api/v1/dashboard/overview/")
         self.assertEqual(current_response.status_code, status.HTTP_200_OK)
         self.assertEqual(float(current_response.data["cards"]["monthly_sales"]), 50.0)
+        self.assertEqual(float(current_response.data["cards"]["today_sales"]), 50.0)
+        self.assertEqual(float(current_response.data["cards"]["today_profit"]), 30.0)
 
         month_response = self.client.get("/api/v1/dashboard/overview/", {"month": previous_month_key})
         self.assertEqual(month_response.status_code, status.HTTP_200_OK)

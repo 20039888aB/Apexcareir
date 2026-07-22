@@ -68,6 +68,9 @@ export default function DashboardPage() {
   const dashboardQuery = useQuery({
     queryKey: ['dashboard', 'overview', overviewParams?.date ?? null, overviewParams?.month ?? null],
     queryFn: () => getDashboardOverview(overviewParams),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   const resetToCurrentMonth = () => {
@@ -109,14 +112,14 @@ export default function DashboardPage() {
     {
       label: "Today's Sales",
       value: formatCurrency(toSafeNumber(cards.today_sales)),
-      hint: 'Live daily performance',
+      hint: period?.is_current_day === false ? `Sales on ${period?.as_of || 'selected day'}` : 'Sales recorded today',
       to: ADMIN_ROUTES.sales,
       variant: 'sales',
     },
     {
       label: "Today's Profit",
       value: formatCurrency(toSafeNumber(cards.today_profit)),
-      hint: 'Profit recorded today',
+      hint: period?.is_current_day === false ? `Profit on ${period?.as_of || 'selected day'}` : 'Profit from sales recorded today',
       to: ADMIN_ROUTES.sales,
       variant: 'profit',
     },

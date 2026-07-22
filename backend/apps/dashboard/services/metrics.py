@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from django.db.models import Count, DecimalField, F, Sum, Value
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Sum, Value
 from django.db.models.functions import Coalesce, TruncDate, TruncMonth
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -12,7 +12,7 @@ from apps.finance.models import Expense
 from apps.appointments.models import Appointment, ContactRequest
 from apps.inventory.models import Product, StockReceipt
 from apps.notifications.models import EmailNotificationLog, ScheduledJob
-from apps.sales.models import Invoice, Sale
+from apps.sales.models import Invoice, InvoiceLineItem, Sale
 
 
 def _to_float(value):
@@ -26,6 +26,51 @@ def _to_float(value):
 def _sum_or_zero(queryset, field_name):
     aggregate = queryset.aggregate(total=Coalesce(Sum(field_name), Value(0, output_field=DecimalField())))
     return aggregate["total"] or Decimal("0")
+
+
+def _active_invoices():
+    return Invoice.objects.exclude(status=Invoice.Status.CANCELLED)
+
+
+def _sales_total_for_dates(*, start_date: date, end_date: date) -> Decimal:
+    """Revenue for a date range from recorded invoices (fallback to orphan sales)."""
+    invoice_total = _sum_or_zero(
+        _active_invoices().filter(invoice_date__gte=start_date, invoice_date__lte=end_date),
+        "grand_total",
+    )
+    orphan_sales_total = _sum_or_zero(
+        Sale.objects.filter(date__gte=start_date, date__lte=end_date, invoice_record__isnull=True),
+        "total",
+    )
+    return invoice_total + orphan_sales_total
+
+
+def _profit_total_for_dates(*, start_date: date, end_date: date) -> Decimal:
+    """Profit for a date range from invoice line items (fallback to orphan sales)."""
+    line_profit = (
+        InvoiceLineItem.objects.filter(
+            invoice__invoice_date__gte=start_date,
+            invoice__invoice_date__lte=end_date,
+        )
+        .exclude(invoice__status=Invoice.Status.CANCELLED)
+        .aggregate(
+            total=Coalesce(
+                Sum(
+                    ExpressionWrapper(
+                        F("line_total") - (F("quantity") * F("cost_price")),
+                        output_field=DecimalField(max_digits=14, decimal_places=2),
+                    )
+                ),
+                Value(0, output_field=DecimalField(max_digits=14, decimal_places=2)),
+            )
+        )["total"]
+        or Decimal("0")
+    )
+    orphan_profit = _sum_or_zero(
+        Sale.objects.filter(date__gte=start_date, date__lte=end_date, invoice_record__isnull=True),
+        "profit",
+    )
+    return line_profit + orphan_profit
 
 
 def _normalize_month_key(value):
@@ -76,11 +121,11 @@ def build_dashboard_overview(*, as_of_date: Optional[str] = None, month: Optiona
         # Explicit day backdate: revenue through that day within its month.
         period_end = today
 
-    today_sales = _sum_or_zero(Sale.objects.filter(date=today), "total")
-    today_profit = _sum_or_zero(Sale.objects.filter(date=today), "profit")
-    monthly_sales = _sum_or_zero(Sale.objects.filter(date__gte=month_start, date__lte=period_end), "total")
+    today_sales = _sales_total_for_dates(start_date=today, end_date=today)
+    today_profit = _profit_total_for_dates(start_date=today, end_date=today)
+    monthly_sales = _sales_total_for_dates(start_date=month_start, end_date=period_end)
     monthly_expenses = _sum_or_zero(Expense.objects.filter(date__gte=month_start, date__lte=period_end), "amount")
-    monthly_profit = _sum_or_zero(Sale.objects.filter(date__gte=month_start, date__lte=period_end), "profit")
+    monthly_profit = _profit_total_for_dates(start_date=month_start, end_date=period_end)
 
     inventory_value = Product.objects.aggregate(
         total=Coalesce(
@@ -427,22 +472,10 @@ def build_business_insights(*, as_of=None):
         )
     )
 
-    current_month_sales = _sum_or_zero(
-        Sale.objects.filter(date__gte=current_month_start, date__lte=period_end),
-        "total",
-    )
-    previous_month_sales = _sum_or_zero(
-        Sale.objects.filter(date__gte=previous_month_start, date__lte=previous_month_end),
-        "total",
-    )
-    current_month_profit = _sum_or_zero(
-        Sale.objects.filter(date__gte=current_month_start, date__lte=period_end),
-        "profit",
-    )
-    previous_month_profit = _sum_or_zero(
-        Sale.objects.filter(date__gte=previous_month_start, date__lte=previous_month_end),
-        "profit",
-    )
+    current_month_sales = _sales_total_for_dates(start_date=current_month_start, end_date=period_end)
+    previous_month_sales = _sales_total_for_dates(start_date=previous_month_start, end_date=previous_month_end)
+    current_month_profit = _profit_total_for_dates(start_date=current_month_start, end_date=period_end)
+    previous_month_profit = _profit_total_for_dates(start_date=previous_month_start, end_date=previous_month_end)
 
     sales_growth_percent = (
         round((_to_float(current_month_sales - previous_month_sales) / _to_float(previous_month_sales)) * 100, 2)
