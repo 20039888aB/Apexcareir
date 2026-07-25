@@ -172,12 +172,13 @@ class EmailNotificationLogViewSet(SuperAdminDestroyMixin, viewsets.ModelViewSet)
 
     @action(detail=False, methods=["post"], url_path="flush")
     def flush(self, request):
-        """Re-queue failed emails and process the SMTP queue immediately."""
+        """Re-queue failed emails and process a bounded SMTP batch (avoids request timeouts)."""
         requeued = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.FAILED).update(
             status=EmailNotificationLog.Status.QUEUED,
             error_message="",
         )
-        process_pending_email_logs(limit=200)
+        # Keep HTTP flush short — scheduler continues draining the rest.
+        process_pending_email_logs(limit=15, max_attempts_per_log=1)
         sent = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.SENT).count()
         failed = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.FAILED).count()
         queued = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.QUEUED).count()
