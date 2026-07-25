@@ -1,5 +1,11 @@
+import ScrollToTop from './components/ScrollToTop';
 import AppRouter from './routes/AppRouter';
 
 export default function App() {
-  return <AppRouter />;
+  return (
+    <>
+      <ScrollToTop />
+      <AppRouter />
+    </>
+  );
 }
