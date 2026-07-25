@@ -340,7 +340,7 @@ export const flyerContent = {
   ] as const,
   locationLine: 'Based in Kenya',
   tagline: 'Serving patients. Supporting clinicians.',
-  downloadFileName: 'Apex-Care-IR-Services-Flyer.jpeg',
+  downloadFileName: 'Apex-Care-IR-Services-Flyer.jpg',
 };
 
 export const faqs = [
