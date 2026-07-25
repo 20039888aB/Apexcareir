@@ -273,57 +273,75 @@ export type IRCondition = {
   treatmentExamples: string[];
 };
 
+/** Conditions We Treat — sourced from the clinic flyer. */
 export const irConditions: IRCondition[] = [
   {
-    slug: 'peripheral-artery-disease',
-    title: 'Peripheral Artery Disease (PAD)',
-    subtitle: 'Blocked leg arteries and reduced blood flow',
-    description: 'IR opens narrowed arteries to improve circulation, reduce pain, and lower limb risk.',
-    treatmentExamples: ['Angioplasty', 'Stenting', 'Atherectomy'],
+    slug: 'vascular-interventions',
+    title: 'Vascular Interventions',
+    subtitle: 'Arterial & venous therapy',
+    description: 'Angioplasty, stenting, embolization & thrombectomy.',
+    treatmentExamples: ['Angioplasty', 'Stenting', 'Embolization', 'Thrombectomy'],
   },
   {
-    slug: 'deep-vein-thrombosis',
-    title: 'Deep Vein Thrombosis (DVT)',
-    subtitle: 'Blood clots in deep veins',
-    description: 'Image-guided catheter therapies help remove or dissolve clots and preserve vein function.',
-    treatmentExamples: ['Catheter-directed thrombolysis', 'Mechanical thrombectomy', 'IVC filter management'],
+    slug: 'liver-interventions',
+    title: 'Liver Interventions',
+    subtitle: 'Hepatobiliary & portal care',
+    description: 'TACE, RFA, PTC/PTBD, TIPS and more.',
+    treatmentExamples: ['TACE', 'RFA', 'PTC/PTBD', 'TIPS'],
   },
   {
-    slug: 'uterine-fibroids',
-    title: 'Uterine Fibroids',
-    subtitle: 'Heavy bleeding, pain, and pelvic pressure',
-    description: 'Uterine fibroid embolization shrinks fibroids without major surgery.',
-    treatmentExamples: ['Uterine fibroid embolization (UFE)', 'Targeted uterine artery embolization'],
+    slug: 'urologic-interventions',
+    title: 'Urologic Interventions',
+    subtitle: 'Kidney, urinary tract & prostate',
+    description: 'PCNL access, nephrostomy, prostate artery embolization (PAE) & more.',
+    treatmentExamples: ['PCNL access', 'Nephrostomy', 'PAE'],
   },
   {
-    slug: 'aortic-aneurysm',
-    title: 'Aortic Aneurysm',
-    subtitle: 'Weakening and bulging of the aorta',
-    description: 'Endovascular aneurysm repair supports the vessel from within using minimally invasive techniques.',
-    treatmentExamples: ['Endovascular stent graft placement', 'Image-guided vascular surveillance'],
+    slug: 'womens-health',
+    title: "Women's Health",
+    subtitle: 'Minimally invasive gynaecologic IR',
+    description: 'Uterine fibroid embolization (UFE), pelvic congestion embolization & more.',
+    treatmentExamples: ['UFE', 'Pelvic congestion embolization'],
   },
   {
-    slug: 'varicose-veins',
-    title: 'Varicose Veins',
-    subtitle: 'Symptomatic venous insufficiency',
-    description: 'IR vein procedures close refluxing veins and improve pain, swelling, and appearance.',
-    treatmentExamples: ['Endovenous ablation', 'Sclerotherapy', 'Ambulatory phlebectomy'],
+    slug: 'oncologic-interventions',
+    title: 'Oncologic Interventions',
+    subtitle: 'Image-guided cancer support',
+    description: 'Tumour ablation, biopsies & port placements.',
+    treatmentExamples: ['Tumour ablation', 'Biopsies', 'Port placements'],
   },
   {
-    slug: 'liver-kidney-tumors',
-    title: 'Liver & Kidney Tumors',
-    subtitle: 'Primary or metastatic tumour care',
-    description: 'IR offers targeted tumour treatment options that can complement oncology and surgery plans.',
-    treatmentExamples: ['Tumour embolization', 'Thermal ablation', 'Image-guided biopsy'],
+    slug: 'chest-interventions',
+    title: 'Chest Interventions',
+    subtitle: 'Thoracic image-guided care',
+    description: 'Drainage procedures, biopsies & vascular interventions.',
+    treatmentExamples: ['Chest drainage', 'Lung biopsies', 'Thoracic vascular IR'],
   },
   {
-    slug: 'portal-hypertension-gi-disorders',
-    title: 'Portal Hypertension & GI Disorders',
-    subtitle: 'Complications of liver and portal venous disease',
-    description: 'Advanced portal venous procedures reduce pressure and control bleeding risk.',
-    treatmentExamples: ['TIPS placement', 'Portal vein recanalization', 'Transvenous obliteration'],
+    slug: 'pain-management-interventions',
+    title: 'Pain Management Interventions',
+    subtitle: 'Targeted image-guided relief',
+    description: 'Nerve blocks, ablations and other image-guided pain therapies.',
+    treatmentExamples: ['Nerve blocks', 'Ablations', 'Image-guided pain therapy'],
   },
 ];
+
+export const flyerContent = {
+  headline: 'Expertise that makes a difference',
+  subheadline:
+    'We offer a wide range of interventional radiology procedures to diagnose and treat conditions with precision, safety and faster recovery.',
+  referringTitle: 'For referring clinicians',
+  referringMessage: 'We partner with you to provide your patients with safe, effective and collaborative care.',
+  referringPoints: [
+    'Prompt appointments',
+    'Clear communication',
+    'Detailed reports',
+    'Collaborative care',
+  ] as const,
+  locationLine: 'Based in Kenya',
+  tagline: 'Serving patients. Supporting clinicians.',
+  downloadFileName: 'Apex-Care-IR-Services-Flyer.jpeg',
+};
 
 export const faqs = [
   {
