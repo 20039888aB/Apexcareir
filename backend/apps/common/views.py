@@ -13,6 +13,26 @@ from .serializers import CompanySettingsSerializer, TransactionEventSerializer
 from .services.datetime_context import get_system_clock_payload
 
 
+class ApiRootView(APIView):
+    """Friendly landing page for the API host root URL."""
+
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        return Response(
+            {
+                "service": "Apex Care IR API",
+                "status": "ok",
+                "website": "https://apexcareir.onrender.com",
+                "admin_console": "https://apexcareir.onrender.com/admin1",
+                "health": request.build_absolute_uri("/api/v1/health/"),
+                "api_base": request.build_absolute_uri("/api/v1/"),
+                "django_admin": request.build_absolute_uri("/admin/"),
+            }
+        )
+
+
 class HealthCheckView(APIView):
     permission_classes = []
 

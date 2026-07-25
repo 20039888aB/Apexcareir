@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
 
-from apps.common.views import MediaAssetAPIView
+from apps.common.views import ApiRootView, MediaAssetAPIView
 
 admin.site.site_header = "Apex Care IR Administration"
 admin.site.site_title = "Apexcareir Admin"
@@ -14,6 +14,7 @@ admin.site.index_title = "Business Management Console"
 # API route modules are mounted under /api/v1/.
 
 urlpatterns = [
+    path("", ApiRootView.as_view(), name="api-root"),
     path("admin/", admin.site.urls),
     path("api/v1/", include("apps.common.urls")),
     path("api/v1/", include("apps.accounts.urls")),
