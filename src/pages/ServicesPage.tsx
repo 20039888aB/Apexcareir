@@ -144,22 +144,16 @@ function DownloadableFlyerCard() {
 export default function ServicesPage() {
   return (
     <>
-      <section className="relative overflow-hidden bg-hero-gradient py-20">
+      {/* Interventional Radiology Services — heading, then flyer + extracted content */}
+      <section className="relative overflow-hidden bg-hero-gradient py-16 sm:py-20">
         <FloatingMedicalBg variant="subtle" />
         <FloatingIRMotifs variant="subtle" />
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-          <FadeIn>
-            <div className="mx-auto mb-8 max-w-3xl rounded-3xl border border-white/50 bg-white/60 p-2 shadow-glass backdrop-blur-md">
-              <img
-                src="/IR 1.png"
-                alt="Interventional Radiology visual"
-                className="h-52 w-full rounded-2xl object-cover sm:h-64"
-              />
-            </div>
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <FadeIn className="text-center">
             <div className="gold-line mx-auto mb-4" />
             <h1 className="section-heading">Interventional Radiology Services</h1>
-            <p className="mt-4 text-navy/60 max-w-2xl mx-auto">
-              Comprehensive, image-guided interventional radiology care for patients across Kenya.
+            <p className="mx-auto mt-4 max-w-2xl text-navy/60">
+              {flyerContent.subheadline}
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               {['Vascular', 'Liver', "Women's Health", 'Oncology', 'Pain Management'].map((label) => (
@@ -169,26 +163,13 @@ export default function ServicesPage() {
               ))}
             </div>
           </FadeIn>
-        </div>
-      </section>
 
-      {/* Flyer-backed conditions: list left, downloadable flyer right */}
-      <section className="section-white relative overflow-hidden">
-        <FloatingMedicalBg variant="subtle" />
-        <FloatingIRMotifs variant="subtle" />
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeIn className="mb-10 max-w-3xl">
-            <div className="gold-line mb-4" />
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-burgundy">
-              Conditions we treat
-            </p>
-            <h2 className="section-heading">{flyerContent.headline}</h2>
-            <p className="mt-4 text-navy/65 leading-relaxed">{flyerContent.subheadline}</p>
-          </FadeIn>
-
-          <div className="grid items-start gap-10 lg:grid-cols-12 lg:gap-12">
+          <div className="mt-10 grid items-start gap-10 lg:mt-12 lg:grid-cols-12 lg:gap-12">
             <FadeIn className="lg:col-span-7" direction="left">
-              <ul className="space-y-1 rounded-3xl border border-gold/15 bg-gradient-to-b from-sky-pad/40 to-white/80 p-3 sm:p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-burgundy">
+                Conditions we treat
+              </p>
+              <ul className="space-y-1 rounded-3xl border border-gold/15 bg-white/70 p-3 shadow-sm backdrop-blur-sm sm:p-4">
                 {irConditions.map((condition, i) => (
                   <FlyerConditionRow key={condition.slug} condition={condition} index={i} />
                 ))}
@@ -197,7 +178,7 @@ export default function ServicesPage() {
               <div className="mt-6 rounded-2xl border border-forest/15 bg-[#0f1412] px-5 py-5 text-white shadow-lg">
                 <div className="mb-3 flex items-center gap-2 text-gold">
                   <Handshake size={18} />
-                  <h3 className="font-display text-lg font-semibold">{flyerContent.referringTitle}</h3>
+                  <h2 className="font-display text-lg font-semibold">{flyerContent.referringTitle}</h2>
                 </div>
                 <p className="text-sm leading-relaxed text-white/70">{flyerContent.referringMessage}</p>
                 <ul className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -230,32 +211,32 @@ export default function ServicesPage() {
         <FloatingMedicalBg variant="subtle" />
         <FloatingIRMotifs variant="subtle" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeIn className="text-center mb-12">
+          <FadeIn className="mb-12 text-center">
             <div className="gold-line mx-auto mb-4" />
             <h2 className="section-heading">Biopsy & Diagnostic Services</h2>
-            <p className="mt-4 text-navy/60 max-w-2xl mx-auto">
+            <p className="mx-auto mt-4 max-w-2xl text-navy/60">
               Precise, image-guided tissue sampling with same-day discharge for most patients.
             </p>
           </FadeIn>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid gap-8 md:grid-cols-2">
             {services.map((s, i) => {
               const Icon = getServiceIcon(s.slug);
               return (
                 <FadeIn key={s.slug} delay={i * 0.08}>
-                  <Link to={`/services/${s.slug}`} className="card modern-ir-card block h-full group">
+                  <Link to={`/services/${s.slug}`} className="card modern-ir-card group block h-full">
                     <div className="flex items-start gap-4">
-                      <div className="h-14 w-14 rounded-2xl bg-sky-pad flex items-center justify-center shrink-0 group-hover:bg-gold/20 transition-colors">
-                        <Icon size={24} className="text-navy group-hover:text-gold transition-colors" />
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-sky-pad transition-colors group-hover:bg-gold/20">
+                        <Icon size={24} className="text-navy transition-colors group-hover:text-gold" />
                       </div>
                       <div className="flex-1">
-                        <h2 className="font-display text-xl font-semibold text-navy mb-2">{s.title}</h2>
-                        <p className="text-sm text-navy/60 leading-relaxed mb-4">{s.description}</p>
+                        <h2 className="mb-2 font-display text-xl font-semibold text-navy">{s.title}</h2>
+                        <p className="mb-4 text-sm leading-relaxed text-navy/60">{s.description}</p>
                         <div className="flex flex-wrap gap-3 text-xs text-navy/50">
                           <span className="flex items-center gap-1"><Clock size={12} /> {s.duration}</span>
                           <span className="flex items-center gap-1"><Syringe size={12} /> {s.anaesthesia}</span>
                         </div>
-                        <span className="inline-flex items-center gap-1 text-sm font-medium text-gold mt-4 group-hover:gap-2 transition-all">
+                        <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-gold transition-all group-hover:gap-2">
                           View details <ArrowRight size={14} />
                         </span>
                       </div>
@@ -272,17 +253,17 @@ export default function ServicesPage() {
         <FloatingMedicalBg variant="subtle" />
         <FloatingIRMotifs variant="subtle" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeIn className="text-center mb-12">
+          <FadeIn className="mb-12 text-center">
             <div className="gold-line mx-auto mb-4" />
             <h2 className="section-heading">Interventional Radiology Procedures</h2>
-            <p className="mt-4 text-navy/60 max-w-3xl mx-auto">
+            <p className="mx-auto mt-4 max-w-3xl text-navy/60">
               Explore a full spectrum of minimally invasive, image-guided procedures including venous access,
               embolization, interventional oncology, dialysis access support, vascular therapy, diagnostic
               sampling, and spine pain interventions.
             </p>
           </FadeIn>
 
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {irServiceCategories.map((category, i) => (
               <FadeIn key={category.slug} delay={i * 0.06}>
                 <ReactiveIRCard category={category} index={i} />
