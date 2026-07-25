@@ -588,6 +588,13 @@ def email_invoice_to_customer(invoice: Invoice, *, user=None, recipient_emails=N
             "Email is not configured on the server. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD, then try again."
         )
 
+    try:
+        from apps.common.email_ipv4 import prefer_ipv4_for_smtp
+
+        prefer_ipv4_for_smtp()
+    except Exception:
+        pass
+
     save_invoice_pdf(invoice, invoice.sale)
 
     contact_phone = branding["phone"]
@@ -628,7 +635,21 @@ def email_invoice_to_customer(invoice: Invoice, *, user=None, recipient_emails=N
     if not pdf_bytes:
         raise ValueError("Invoice PDF is empty. Regenerate the invoice PDF, then try emailing again.")
     email.attach(invoice.pdf_file.name.split("/")[-1] or f"{invoice.invoice_number}.pdf", pdf_bytes, "application/pdf")
-    email.send(fail_silently=False)
+    import time
+
+    last_error = None
+    for attempt in range(1, 4):
+        try:
+            email.send(fail_silently=False)
+            last_error = None
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            if attempt < 3:
+                time.sleep(min(2 * attempt, 6))
+                continue
+    if last_error is not None:
+        raise last_error
 
     recipient_summary = ", ".join(recipients)
     log_transaction_event(

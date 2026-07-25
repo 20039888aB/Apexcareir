@@ -18,14 +18,24 @@ class HealthCheckView(APIView):
 
     def get(self, request):
         email_configured = bool(settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD)
-        return Response(
-            {
-                "status": "ok",
-                "email_configured": email_configured,
-                "email_host": settings.EMAIL_HOST or "",
-                "email_user_set": bool(settings.EMAIL_HOST_USER),
+        payload = {
+            "status": "ok",
+            "email_configured": email_configured,
+            "email_host": settings.EMAIL_HOST or "",
+            "email_user_set": bool(settings.EMAIL_HOST_USER),
+        }
+        try:
+            from apps.notifications.models import EmailNotificationLog, ScheduledJob
+
+            payload["email_queue"] = {
+                "queued": EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.QUEUED).count(),
+                "failed": EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.FAILED).count(),
+                "sent": EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.SENT).count(),
             }
-        )
+            payload["scheduler_jobs_active"] = ScheduledJob.objects.filter(is_active=True).count()
+        except Exception:  # noqa: BLE001
+            pass
+        return Response(payload)
 
 
 class MediaAssetAPIView(APIView):

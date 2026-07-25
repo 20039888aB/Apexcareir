@@ -247,7 +247,23 @@ class NotificationService:
         return created_notifications
 
 
-def process_pending_email_logs(limit=100):
+def _is_transient_smtp_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    needles = (
+        "network is unreachable",
+        "timed out",
+        "timeout",
+        "connection refused",
+        "temporary failure",
+        "try again",
+        "4.4.",
+        "421",
+        "454",
+    )
+    return any(needle in text for needle in needles)
+
+
+def process_pending_email_logs(limit=100, max_attempts_per_log: int = 3):
     if not (settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD):
         for log in EmailNotificationLog.objects.filter(
             status__in=[EmailNotificationLog.Status.QUEUED, EmailNotificationLog.Status.FAILED]
@@ -263,22 +279,46 @@ def process_pending_email_logs(limit=100):
                 )
         return
 
+    # Prefer IPv4 on hosts where IPv6 SMTP routes fail (Render → Gmail).
+    try:
+        from apps.common.email_ipv4 import prefer_ipv4_for_smtp
+
+        prefer_ipv4_for_smtp()
+    except Exception:  # noqa: BLE001
+        pass
+
     logs = (
         EmailNotificationLog.objects.select_related("notification")
         .filter(status__in=[EmailNotificationLog.Status.QUEUED, EmailNotificationLog.Status.FAILED])
         .order_by("created_at")[:limit]
     )
     from_email = _smtp_from_email()
+    import time
+
     for log in logs:
-        try:
-            msg = EmailMultiAlternatives(
-                subject=_safe_subject(log.subject),
-                body="Apex Care IR notification",
-                from_email=from_email,
-                to=[log.recipient],
-            )
-            msg.attach_alternative(log.html_content, "text/html")
-            msg.send(fail_silently=False)
+        last_error = ""
+        sent = False
+        attempts = max(1, max_attempts_per_log)
+        for attempt in range(1, attempts + 1):
+            try:
+                msg = EmailMultiAlternatives(
+                    subject=_safe_subject(log.subject),
+                    body="Apex Care IR notification",
+                    from_email=from_email,
+                    to=[log.recipient],
+                )
+                msg.attach_alternative(log.html_content, "text/html")
+                msg.send(fail_silently=False)
+                sent = True
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_error = str(exc)[:4000]
+                if attempt < attempts and _is_transient_smtp_error(exc):
+                    time.sleep(min(2 * attempt, 6))
+                    continue
+                break
+
+        if sent:
             log.status = EmailNotificationLog.Status.SENT
             log.error_message = ""
             log.sent_time = timezone.now()
@@ -287,9 +327,9 @@ def process_pending_email_logs(limit=100):
                 log.notification.status = Notification.DeliveryStatus.SENT
                 log.notification.sent_at = log.sent_time
                 log.notification.save(update_fields=["status", "sent_at", "updated_at"])
-        except Exception as exc:  # noqa: BLE001
+        else:
             log.status = EmailNotificationLog.Status.FAILED
-            log.error_message = str(exc)[:4000]
+            log.error_message = last_error
             log.retry_count += 1
             log.save(update_fields=["status", "error_message", "retry_count", "updated_at"])
             if log.notification:

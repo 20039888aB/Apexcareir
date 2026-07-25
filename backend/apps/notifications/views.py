@@ -170,6 +170,29 @@ class EmailNotificationLogViewSet(SuperAdminDestroyMixin, viewsets.ModelViewSet)
         )
         return Response({"deleted_count": deleted_count}, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=["post"], url_path="flush")
+    def flush(self, request):
+        """Re-queue failed emails and process the SMTP queue immediately."""
+        requeued = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.FAILED).update(
+            status=EmailNotificationLog.Status.QUEUED,
+            error_message="",
+        )
+        process_pending_email_logs(limit=200)
+        sent = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.SENT).count()
+        failed = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.FAILED).count()
+        queued = EmailNotificationLog.objects.filter(status=EmailNotificationLog.Status.QUEUED).count()
+        log_audit_event(
+            request=request,
+            action="email_queue_flush",
+            module="notifications",
+            description=f"Flushed email queue (requeued={requeued}).",
+            metadata={"requeued": requeued, "sent": sent, "failed": failed, "queued": queued},
+        )
+        return Response(
+            {"requeued": requeued, "sent": sent, "failed": failed, "queued": queued},
+            status=status.HTTP_200_OK,
+        )
+
 
 class ScheduledJobViewSet(viewsets.ModelViewSet):
     serializer_class = ScheduledJobSerializer
@@ -264,3 +287,51 @@ class NotificationResendEmailAPIView(APIView):
         process_pending_email_logs(limit=20)
         log.refresh_from_db()
         return Response({"status": log.status, "sent_time": log.sent_time})
+
+
+class NotificationTestEmailAPIView(APIView):
+    """Send a one-off SMTP test to confirm hosted email delivery."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request):
+        from django.conf import settings
+
+        from apps.notifications.services import NotificationService
+
+        recipient = (request.data.get("email") or settings.EMAIL_HOST_USER or request.user.email or "").strip()
+        if not recipient:
+            return Response({"detail": "No recipient email available."}, status=400)
+        if not (settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD):
+            return Response(
+                {"detail": "SMTP is not configured. Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD on the API."},
+                status=400,
+            )
+
+        NotificationService.send(
+            title="Apex Care IR email test",
+            message="This is a hosted SMTP test from Apex Care IR. If you received this, notifications are working.",
+            event_code="system.email_test",
+            notification_type=Notification.NotificationType.SYSTEM,
+            priority=Notification.Priority.MEDIUM,
+            ui_type=Notification.Type.INFO,
+            dedup_key=f"email-test-{timezone.now().timestamp()}",
+            related_module="notifications",
+            created_by=request.user,
+            direct_emails=[recipient],
+            flush_immediately=True,
+        )
+        process_pending_email_logs(limit=20)
+        latest = (
+            EmailNotificationLog.objects.filter(recipient__iexact=recipient)
+            .order_by("-created_at")
+            .first()
+        )
+        return Response(
+            {
+                "recipient": recipient,
+                "status": latest.status if latest else "unknown",
+                "error_message": latest.error_message if latest else "",
+                "sent_time": latest.sent_time if latest else None,
+            }
+        )

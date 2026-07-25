@@ -2,6 +2,11 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403,F401
 
+# Render free instances often fail Gmail SMTP over IPv6 with "Network is unreachable".
+from apps.common.email_ipv4 import prefer_ipv4_for_smtp  # noqa: E402
+
+prefer_ipv4_for_smtp()
+
 DEBUG = False
 
 _INSECURE_SECRET_KEYS = {

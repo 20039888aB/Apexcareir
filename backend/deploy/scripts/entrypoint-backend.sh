@@ -33,6 +33,10 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
+# Drain any emails that queued while the free instance was asleep.
+echo "Flushing pending notification emails..."
+python manage.py process_notification_emails --limit 200 || true
+
 # Render free tier has no separate worker — run the email/report scheduler
 # alongside gunicorn so queued mail and scheduled reports still flush.
 if [ "${ENABLE_EMBEDDED_SCHEDULER:-True}" != "False" ] && [ "${ENABLE_EMBEDDED_SCHEDULER:-True}" != "false" ]; then

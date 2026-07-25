@@ -42,6 +42,14 @@ This project now:
 
 Still required: set the Gmail App Password as `EMAIL_HOST_PASSWORD` in the Render dashboard for `apexcareir-api`.
 
+### Render IPv6 / “Network is unreachable”
+
+If email logs show `[Errno 101] Network is unreachable`, the API is forcing **IPv4-first** SMTP resolution and retrying transient failures. After deploy:
+
+1. Confirm health: `GET /api/v1/health/` → `email_configured: true`
+2. As SuperAdmin, `POST /api/v1/notification-email-logs/flush/` to re-send failed mail
+3. Or `POST /api/v1/notifications/test-email/` with `{ "email": "you@example.com" }`
+
 ## Troubleshooting
 
 | Issue | Fix |

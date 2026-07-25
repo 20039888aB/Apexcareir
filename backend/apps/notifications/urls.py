@@ -9,6 +9,7 @@ from .views import (
     NotificationPreferenceAPIView,
     NotificationRecipientViewSet,
     NotificationResendEmailAPIView,
+    NotificationTestEmailAPIView,
     ScheduledJobRunLogViewSet,
     ScheduledJobViewSet,
 )
@@ -25,6 +26,7 @@ urlpatterns = [
     path("notifications/<int:notification_id>/mark-read/", NotificationMarkReadAPIView.as_view(), name="notifications-mark-read"),
     path("notifications/preferences/", NotificationPreferenceAPIView.as_view(), name="notifications-preferences"),
     path("notifications/email-logs/<int:log_id>/resend/", NotificationResendEmailAPIView.as_view(), name="notifications-email-resend"),
+    path("notifications/test-email/", NotificationTestEmailAPIView.as_view(), name="notifications-test-email"),
 ]
 
 urlpatterns += router.urls
