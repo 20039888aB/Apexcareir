@@ -1,11 +1,11 @@
-import whatsapp1 from '../images/WhatsApp Image 2026-07-14 at 8.48.14 PM.jpeg';
-import whatsapp2 from '../images/WhatsApp Image 2026-07-14 at 8.48.14 PM (1).jpeg';
-import whatsapp3 from '../images/WhatsApp Image 2026-07-14 at 8.48.15 PM.jpeg';
 import whatsapp4 from '../images/WhatsApp Image 2026-07-14 at 8.48.15 PM (1).jpeg';
 import whatsapp5 from '../images/WhatsApp Image 2026-07-14 at 8.48.15 PM (2).jpeg';
 import whatsapp6 from '../images/WhatsApp Image 2026-07-14 at 8.48.16 PM.jpeg';
-import whatsapp7 from '../images/WhatsApp Image 2026-07-14 at 8.48.16 PM (1).jpeg';
 import interventionalRadiology from '../images/interventional radiology.jpg';
+import precisionSuite from '../images/precision suite.avif';
+import advancedImaging from '../images/advanced imaging.jpg';
+import patientCentredCare from '../images/patient centred care.jpg';
+import clinicalExcellence from '../images/clinical excellence.jpg';
 
 export type GalleryImage = {
   id: string;
@@ -18,21 +18,21 @@ export type GalleryImage = {
 export const galleryImages: GalleryImage[] = [
   {
     id: 'ir-suite-1',
-    src: whatsapp1,
+    src: precisionSuite,
     alt: 'Interventional radiology procedure suite',
     title: 'Precision Suite',
     subtitle: 'Real-time image guidance for every intervention',
   },
   {
     id: 'ir-suite-2',
-    src: whatsapp2,
+    src: advancedImaging,
     alt: 'Advanced IR imaging workflow',
     title: 'Advanced Imaging',
     subtitle: 'High-resolution planning before every procedure',
   },
   {
     id: 'ir-care-1',
-    src: whatsapp3,
+    src: patientCentredCare,
     alt: 'Patient-centred interventional radiology care',
     title: 'Patient-Centred Care',
     subtitle: 'Minimally invasive pathways with faster recovery',
@@ -60,7 +60,7 @@ export const galleryImages: GalleryImage[] = [
   },
   {
     id: 'ir-tech-3',
-    src: whatsapp7,
+    src: clinicalExcellence,
     alt: 'Interventional radiology clinical excellence',
     title: 'Clinical Excellence',
     subtitle: 'Fellowship-trained interventional radiology care',
